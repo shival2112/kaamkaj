@@ -1,0 +1,20 @@
+# Environment files — NEVER commit
+.env
+.env.local
+.env*.local
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies (handled by frontend/.gitignore too)
+node_modules/
