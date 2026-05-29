@@ -1,12 +1,22 @@
 import { cn } from '@/lib/utils';
 
-export type ApplicationStatus = 'Applied' | 'Shortlisted' | 'Interview' | 'Offered';
+export type ApplicationStatus =
+  | 'Applied'
+  | 'Reviewing'
+  | 'Shortlisted'
+  | 'Interview'
+  | 'Rejected'
+  | 'Offered'
+  | 'Hired';
 
 const STATUS_STYLES: Record<ApplicationStatus, string> = {
-  Applied: 'bg-gray-100 text-gray-600',
+  Applied:     'bg-gray-100 text-gray-600',
+  Reviewing:   'bg-sky-50 text-sky-700',
   Shortlisted: 'bg-yellow-50 text-yellow-700',
-  Interview: 'bg-blue-50 text-blue-700',
-  Offered: 'bg-green-50 text-green-700',
+  Interview:   'bg-blue-50 text-blue-700',
+  Rejected:    'bg-red-50 text-red-600',
+  Offered:     'bg-green-50 text-green-700',
+  Hired:       'bg-emerald-50 text-emerald-700',
 };
 
 interface StatusChipProps {
@@ -26,4 +36,16 @@ export function StatusChip({ status, className }: StatusChipProps) {
       {status}
     </span>
   );
+}
+
+/** Maps Prisma ApplicationStatus enum → display ApplicationStatus */
+export function mapDbStatus(dbStatus: string): ApplicationStatus {
+  const map: Record<string, ApplicationStatus> = {
+    APPLIED:     'Applied',
+    REVIEWING:   'Reviewing',
+    SHORTLISTED: 'Shortlisted',
+    REJECTED:    'Rejected',
+    HIRED:       'Hired',
+  };
+  return map[dbStatus] ?? 'Applied';
 }

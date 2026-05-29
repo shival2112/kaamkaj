@@ -8,6 +8,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { ApplyButton } from '@/components/jobs/ApplyButton';
+import { SaveButton } from '@/components/jobs/SaveButton';
 import { cn } from '@/lib/utils';
 import { JobType, ExperienceLevel } from '@prisma/client';
 
@@ -76,16 +77,23 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   if (!job) notFound();
 
-  // Check if logged-in candidate already applied (non-fatal if not logged in)
+  // Check if logged-in candidate already applied / saved (non-fatal if not logged in)
   let alreadyApplied = false;
+  let alreadySaved   = false;
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const existing = await prisma.application.findUnique({
-        where: { jobId_candidateId: { jobId: job.id, candidateId: user.id } },
-      });
+      const [existing, savedRecord] = await Promise.all([
+        prisma.application.findUnique({
+          where: { jobId_candidateId: { jobId: job.id, candidateId: user.id } },
+        }),
+        prisma.savedJob.findUnique({
+          where: { userId_jobId: { userId: user.id, jobId: job.id } },
+        }),
+      ]);
       alreadyApplied = !!existing;
+      alreadySaved   = !!savedRecord;
     }
   } catch {
     // not fatal
@@ -229,8 +237,9 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 {job._count.applications} candidate{job._count.applications !== 1 ? 's' : ''} already applied
               </p>
 
-              <div className="mt-4">
+              <div className="mt-4 space-y-2">
                 <ApplyButton jobId={job.id} alreadyApplied={alreadyApplied} />
+                <SaveButton jobId={job.id} initialSaved={alreadySaved} variant="full" />
               </div>
 
               <div className="mt-4 space-y-2 border-t border-border pt-4">

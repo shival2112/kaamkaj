@@ -1,142 +1,66 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Search,
-  Bell,
-  Globe,
-  Layers,
-  Users,
-  Calendar,
-  CheckCircle2,
-  PlusCircle,
-  ClipboardList,
-  BarChart3,
-  Settings,
-  LayoutDashboard,
+  Search, Bell, Globe, Layers, Users, Calendar,
+  CheckCircle2, PlusCircle, ClipboardList, BarChart3,
+  Settings, LayoutDashboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { KPICard } from '@/components/ui/KPICard';
-import { StatusChip, type ApplicationStatus } from '@/components/ui/StatusChip';
-import {
-  DashboardSidebar,
-  type SidebarNavSection,
-} from '@/components/dashboard/DashboardSidebar';
+import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
+import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 
-// ─── Employer nav sections ────────────────────────────────────────────────────
+// ─── Nav ─────────────────────────────────────────────────────────────────────
 
 const EMPLOYER_NAV: SidebarNavSection[] = [
   {
     label: 'Manage',
     items: [
-      { href: '/employer/dashboard', label: 'Overview', icon: LayoutDashboard },
-      { href: '/employer/dashboard/listings', label: 'My Listings', icon: Layers },
+      { href: '/employer/dashboard',             label: 'Overview',              icon: LayoutDashboard },
+      { href: '/employer/dashboard/listings',     label: 'My Listings',           icon: Layers },
       { href: '/employer/dashboard/applications', label: 'Applications Received', icon: ClipboardList },
-      { href: '/employer/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/employer/dashboard/analytics',    label: 'Analytics',             icon: BarChart3 },
     ],
   },
-  {
-    label: 'Account',
-    items: [
-      { href: '/employer/dashboard/settings', label: 'Settings', icon: Settings },
-    ],
-  },
+  { label: 'Account', items: [{ href: '/employer/dashboard/settings', label: 'Settings', icon: Settings }] },
 ];
 
-// ─── Sample data ──────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type KPIItem = { icon: React.ReactNode; label: string; value: number; change: string };
-
-const KPI_DATA: KPIItem[] = [
-  { icon: <Layers className="h-5 w-5" />, label: 'Active Listings', value: 8, change: '+2 this week' },
-  { icon: <Users className="h-5 w-5" />, label: 'Total Applicants', value: 47, change: '+12 this week' },
-  { icon: <Calendar className="h-5 w-5" />, label: 'Interviews Scheduled', value: 6, change: '+3 this week' },
-  { icon: <CheckCircle2 className="h-5 w-5" />, label: 'Jobs Filled', value: 3, change: '+1 this month' },
-];
-
-type ListingStatus = 'Active' | 'Paused' | 'Closed';
-
-type JobListing = {
-  id: string;
-  title: string;
-  location: string;
-  applications: number;
-  status: ListingStatus;
-  posted: string;
-};
-
-const JOB_LISTINGS: JobListing[] = [
-  { id: '1', title: 'Senior React Developer', location: 'Bangalore', applications: 12, status: 'Active', posted: 'May 20' },
-  { id: '2', title: 'Backend Engineer', location: 'Remote', applications: 8, status: 'Active', posted: 'May 18' },
-  { id: '3', title: 'Product Manager', location: 'Mumbai', applications: 3, status: 'Paused', posted: 'May 15' },
-  { id: '4', title: 'UI/UX Designer', location: 'Pune', applications: 0, status: 'Closed', posted: 'May 10' },
-];
-
-type ApplicantRow = {
-  id: string;
-  candidateName: string;
-  jobTitle: string;
-  stage: ApplicationStatus;
-  appliedDate: string;
-  initial: string;
-  color: string;
-};
-
-const APPLICANTS: ApplicantRow[] = [
-  { id: '1', candidateName: 'Priya Sharma', jobTitle: 'Senior React Developer', stage: 'Shortlisted', appliedDate: 'May 22', initial: 'P', color: 'bg-pink-500' },
-  { id: '2', candidateName: 'Rahul Mehta', jobTitle: 'Backend Engineer', stage: 'Interview', appliedDate: 'May 21', initial: 'R', color: 'bg-blue-500' },
-  { id: '3', candidateName: 'Ananya Singh', jobTitle: 'Senior React Developer', stage: 'Applied', appliedDate: 'May 20', initial: 'A', color: 'bg-violet-500' },
-  { id: '4', candidateName: 'Vikram Nair', jobTitle: 'Product Manager', stage: 'Applied', appliedDate: 'May 19', initial: 'V', color: 'bg-green-600' },
-];
+interface Stats { activeListings: number; totalApplicants: number; shortlisted: number; filled: number }
+type JobStatus = 'ACTIVE' | 'DRAFT' | 'CLOSED' | 'EXPIRED';
+interface Listing {
+  id: string; title: string; location: string; status: JobStatus; createdAt: string;
+  _count: { applications: number };
+}
+interface RecentApp {
+  id: string; status: string; appliedAt: string;
+  job: { id: string; title: string };
+  candidate: { name: string; email: string };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const LISTING_STATUS_STYLES: Record<ListingStatus, string> = {
-  Active: 'bg-green-50 text-green-700',
-  Paused: 'bg-yellow-50 text-yellow-700',
-  Closed: 'bg-gray-100 text-gray-500',
+const STATUS_LABEL: Record<JobStatus, { label: string; style: string }> = {
+  ACTIVE:  { label: 'Active',  style: 'bg-green-50 text-green-700' },
+  DRAFT:   { label: 'Paused',  style: 'bg-yellow-50 text-yellow-700' },
+  CLOSED:  { label: 'Closed',  style: 'bg-gray-100 text-gray-500' },
+  EXPIRED: { label: 'Expired', style: 'bg-gray-100 text-gray-500' },
 };
 
-function ListingStatusChip({ status }: { status: ListingStatus }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        LISTING_STATUS_STYLES[status]
-      )}
-    >
-      {status}
-    </span>
-  );
+const TILE_COLORS = ['bg-blue-500','bg-violet-500','bg-green-600','bg-orange-500','bg-pink-500','bg-indigo-500','bg-teal-500'];
+function tileColor(name: string) {
+  let h = 0; for (const c of name) h = c.charCodeAt(0) + h * 31;
+  return TILE_COLORS[Math.abs(h) % TILE_COLORS.length];
 }
 
-function ActionBtn({
-  children,
-  variant = 'default',
-}: {
-  children: React.ReactNode;
-  variant?: 'default' | 'warning';
-}) {
-  return (
-    <button
-      className={cn(
-        'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-        variant === 'warning'
-          ? 'border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
-          : 'border-gray-200 bg-white text-muted-foreground hover:bg-gray-50 hover:text-foreground'
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function getGreeting(): string {
+function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
   if (h < 18) return 'Good afternoon';
@@ -147,14 +71,11 @@ function getGreeting(): string {
 
 export default function EmployerDashboardPage() {
   const router = useRouter();
-
-  // Initializes Supabase auth listener + populates store
   const { user, dbUser, isLoading } = useAuth();
   const clearUser = useAuthStore((s) => s.clearUser);
 
   const userRole = ((user?.user_metadata?.role as string) ?? 'CANDIDATE').toUpperCase();
 
-  // Client-side guard — middleware handles server-side, this is belt-and-suspenders
   useEffect(() => {
     if (!isLoading) {
       if (!user) router.replace('/login');
@@ -162,204 +83,173 @@ export default function EmployerDashboardPage() {
     }
   }, [user, isLoading, userRole, router]);
 
+  // ── Real data ────────────────────────────────────────────────────────────────
+  const [stats,   setStats]   = useState<Stats | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [recentApps, setRecentApps] = useState<RecentApp[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || userRole !== 'EMPLOYER') return;
+    setDataLoading(true);
+    Promise.all([
+      fetch('/api/employer/stats').then(r => r.json()),
+      fetch('/api/employer/jobs').then(r => r.json()),
+      fetch('/api/employer/applications?limit=4').then(r => r.json()),
+    ]).then(([s, j, a]) => {
+      setStats(s);
+      setListings((j.jobs ?? []).slice(0, 4));
+      setRecentApps(a.applications ?? []);
+    }).finally(() => setDataLoading(false));
+  }, [user, userRole]);
+
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
-
-  const initials =
-    displayName
-      .split(' ')
-      .map((w) => w[0] ?? '')
-      .filter(Boolean)
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() || 'U';
-
   const greeting = useMemo(getGreeting, []);
 
+  const initials = displayName.split(' ').map((w: string) => w[0] ?? '').filter(Boolean).slice(0, 2).join('').toUpperCase() || 'U';
+
   const handleLogout = async () => {
-    const supabase = createSupabaseClient();
-    await supabase.auth.signOut();
-    clearUser();
-    router.push('/');
+    await createSupabaseClient().auth.signOut();
+    clearUser(); router.push('/');
   };
 
   if (isLoading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>;
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* ── Sidebar ── */}
-      <DashboardSidebar
-        displayName={displayName}
-        role="Employer"
-        onLogout={handleLogout}
-        primaryButtonLabel="Post a Job"
-        primaryButtonIcon={PlusCircle}
+      <DashboardSidebar displayName={displayName} role="Employer" onLogout={handleLogout}
+        primaryButtonLabel="Post a Job" primaryButtonIcon={PlusCircle}
         onPrimaryButton={() => router.push('/employer/dashboard/post-job')}
-        navSections={EMPLOYER_NAV}
-      />
+        navSections={EMPLOYER_NAV} />
 
-      {/* ── Main content ── */}
       <div className="flex flex-1 flex-col overflow-hidden bg-gray-50">
-
         {/* Top bar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
           <div className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search candidates, listings..."
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-            />
+            <input type="text" placeholder="Search candidates, listings..."
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
           </div>
           <div className="flex items-center gap-2">
-            <button
-              aria-label="Notifications"
-              className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-foreground"
-            >
+            <button aria-label="Notifications" className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100">
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <button
-              aria-label="Language"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-foreground"
-            >
+            <button aria-label="Language" className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100">
               <Globe className="h-5 w-5" />
             </button>
-            <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-              {initials}
-            </div>
+            <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">{initials}</div>
           </div>
         </header>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-6">
-
-          {/* Greeting */}
-          <h1 className="text-2xl font-bold text-foreground">
-            {greeting}, {displayName} 👋
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName} 👋</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Here&apos;s what&apos;s happening with your listings today.
+            {stats
+              ? `${stats.activeListings} active listing${stats.activeListings !== 1 ? 's' : ''} · ${stats.totalApplicants} total applicant${stats.totalApplicants !== 1 ? 's' : ''}`
+              : "Here's what's happening with your listings today."}
           </p>
 
           {/* KPI cards */}
           <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-            {KPI_DATA.map(({ icon, label, value, change }) => (
-              <KPICard key={label} icon={icon} label={label} value={value} change={change} />
-            ))}
+            <KPICard icon={<Layers className="h-5 w-5" />} label="Active Listings"
+              value={dataLoading ? '—' : stats?.activeListings ?? 0} change={dataLoading ? '' : 'total'} />
+            <KPICard icon={<Users className="h-5 w-5" />} label="Total Applicants"
+              value={dataLoading ? '—' : stats?.totalApplicants ?? 0} change={dataLoading ? '' : 'total'} />
+            <KPICard icon={<Calendar className="h-5 w-5" />} label="Shortlisted"
+              value={dataLoading ? '—' : stats?.shortlisted ?? 0} change={dataLoading ? '' : 'total'} />
+            <KPICard icon={<CheckCircle2 className="h-5 w-5" />} label="Jobs Filled"
+              value={dataLoading ? '—' : stats?.filled ?? 0} change={dataLoading ? '' : 'total'} />
           </div>
 
           {/* My Job Listings */}
           <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h2 className="font-semibold text-foreground">My Job Listings</h2>
-              <Link
-                href="/employer/dashboard/listings"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View all
-              </Link>
+              <Link href="/employer/dashboard/listings" className="text-sm font-medium text-primary hover:underline">View all</Link>
             </div>
-
-            {/* Column headers */}
             <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['JOB TITLE', 'APPLICATIONS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map((col) => (
-                <span
-                  key={col}
-                  className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                >
-                  {col}
-                </span>
+              {(['JOB TITLE', 'APPLICATIONS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
+                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
               ))}
             </div>
 
-            {/* Rows */}
-            {JOB_LISTINGS.map(({ id, title, location, applications, status, posted }) => (
-              <div
-                key={id}
-                className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">{title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{location}</p>
-                </div>
-                <p className="text-sm font-medium text-foreground">{applications}</p>
-                <ListingStatusChip status={status} />
-                <p className="text-sm text-muted-foreground">{posted}</p>
-                <div className="flex items-center gap-1.5">
-                  <ActionBtn>View</ActionBtn>
-                  <ActionBtn>Edit</ActionBtn>
-                  <ActionBtn variant={status === 'Active' ? 'warning' : 'default'}>
-                    {status === 'Active' ? 'Pause' : status === 'Paused' ? 'Resume' : 'Repost'}
-                  </ActionBtn>
-                </div>
+            {dataLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
-            ))}
+            ) : listings.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm text-muted-foreground">No jobs posted yet.</p>
+                <Link href="/employer/dashboard/post-job" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                  <PlusCircle className="h-4 w-4" /> Post your first job
+                </Link>
+              </div>
+            ) : listings.map(job => {
+              const info = STATUS_LABEL[job.status] ?? STATUS_LABEL.CLOSED;
+              return (
+                <div key={job.id}
+                  className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">{job.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{job.location}</p>
+                  </div>
+                  <p className="text-sm font-medium text-foreground">{job._count.applications}</p>
+                  <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', info.style)}>{info.label}</span>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(job.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </p>
+                  <Link href={`/employer/dashboard/applications?jobId=${job.id}`}
+                    className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
+                    Applicants
+                  </Link>
+                </div>
+              );
+            })}
           </div>
 
           {/* Recent Applicants */}
           <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h2 className="font-semibold text-foreground">Recent Applicants</h2>
-              <Link
-                href="/employer/dashboard/applications"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View all
-              </Link>
+              <Link href="/employer/dashboard/applications" className="text-sm font-medium text-primary hover:underline">View all</Link>
             </div>
-
-            {/* Column headers */}
-            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['CANDIDATE', 'JOB APPLIED FOR', 'STAGE', 'APPLIED', 'ACTIONS'] as const).map((col) => (
-                <span
-                  key={col}
-                  className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-                >
-                  {col}
-                </span>
+            <div className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-4 border-b border-gray-100 px-6 py-3">
+              {(['CANDIDATE', 'JOB APPLIED FOR', 'STAGE', 'APPLIED'] as const).map(col => (
+                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
               ))}
             </div>
 
-            {/* Rows */}
-            {APPLICANTS.map(({ id, candidateName, jobTitle, stage, appliedDate, initial, color }) => (
-              <div
-                key={id}
-                className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50"
-              >
-                {/* CANDIDATE */}
+            {dataLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : recentApps.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm text-muted-foreground">No applications yet. Post jobs to start receiving applicants.</p>
+              </div>
+            ) : recentApps.map(app => (
+              <div key={app.id}
+                className="grid grid-cols-[2fr_2fr_1fr_1fr] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${color}`}
-                  >
-                    {initial}
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(app.candidate.name)}`}>
+                    {app.candidate.name[0]?.toUpperCase() ?? '?'}
                   </div>
-                  <p className="truncate text-sm font-semibold text-foreground">{candidateName}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{app.candidate.name}</p>
                 </div>
-
-                {/* JOB */}
-                <p className="truncate text-sm text-muted-foreground">{jobTitle}</p>
-
-                {/* STAGE */}
-                <StatusChip status={stage} />
-
-                {/* APPLIED */}
-                <p className="text-sm text-muted-foreground">{appliedDate}</p>
-
-                {/* ACTIONS */}
-                <div className="flex items-center gap-1.5">
-                  <ActionBtn>View Profile</ActionBtn>
-                  <ActionBtn>Schedule Interview</ActionBtn>
-                </div>
+                <p className="truncate text-sm text-muted-foreground">{app.job.title}</p>
+                <StatusChip status={mapDbStatus(app.status)} />
+                <p className="text-sm text-muted-foreground">
+                  {new Date(app.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </p>
               </div>
             ))}
           </div>
-
         </div>
       </div>
     </div>
