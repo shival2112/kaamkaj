@@ -1,7 +1,7 @@
 # KAAMKAJ - TODO Tracker
 
 ## Current Feature
-**Phase 3: Authentication (Login, Signup, Supabase, Prisma)**
+**Phase 4: Jobs Module (Listing, Filters, Detail, Search)**
 
 ## Status Legend
 - [x] Completed
@@ -11,123 +11,101 @@
 
 ---
 
-## Phase 1: Foundation
-
-### Root Files & Documentation
-- [x] CLAUDE.md
-- [x] TODO.md
-- [x] ARCHITECTURE.md
-- [x] DESIGN.md
-- [x] Skills/ — all 9 skill files (frontend, backend, ui-system, supabase, auth, dashboard, api-routes, responsive-design, deployment)
-
-### Frontend Project Init
-- [x] Initialize Next.js 14.2.35 with TypeScript, Tailwind, App Router (no src/, @/* alias)
-- [x] Configure custom Tailwind colors (design tokens — primary #5B5BD6, all brand colors via CSS vars)
-- [x] Configure shadcn/ui (components.json, CSS variables in globals.css)
-- [x] Create lib/utils.ts (cn utility with clsx + tailwind-merge)
-- [x] Create shadcn/ui Button component (components/ui/button.tsx)
-
-### Base Layout
-- [x] Update root `app/layout.tsx` with Inter font, metadata, Navbar
-- [x] Update `app/globals.css` with CSS variables and base styles
-- [x] Create placeholder `app/page.tsx` (hero-style "coming soon")
-
-### Navbar Component
-- [x] Create `components/layout/Navbar.tsx` (sticky, responsive)
-  - [x] Logo with Briefcase icon + KaamKaaj brand text
-  - [x] Desktop nav links (Find Jobs, Companies, Resources)
-  - [x] Desktop auth buttons (Login outline + Sign Up Free filled)
-  - [x] Mobile hamburger toggle with animated open/close
-  - [x] Mobile slide-down menu (CSS max-height transition)
-  - [x] Scroll-shadow effect (border → shadow-md on scroll)
-  - [x] Production build verified ✓
+## Phase 1: Foundation ✓
+- [x] CLAUDE.md, TODO.md, ARCHITECTURE.md, DESIGN.md
+- [x] Skills/ — all 9 skill files
+- [x] Next.js 14.2.35 + TypeScript + Tailwind + App Router
+- [x] Tailwind design tokens, shadcn/ui, Button component
+- [x] Root layout with Inter font + ConditionalNavbar
+- [x] globals.css with CSS variables
 
 ---
 
 ## Phase 2: Homepage ✓
-- [x] Hero section — gradient bg, "#1 Job Platform" headline, trust badge, popular search chips
-- [x] SearchBar (client) — job title + location inputs, router.push to /jobs, Enter key support
-- [x] StatsBar — 5 Cr+ Candidates, 10 L+ Employers, 50 L+ Jobs with icons
-- [x] CategoryGrid — 8 categories (Sales, Delivery, Tech, BPO, Finance, Teaching, Healthcare, Marketing)
-- [x] JobCard component (reusable) — company initial, job type badge, skills, apply button
-- [x] FeaturedJobs — 6 placeholder job cards in responsive grid
-- [x] HowItWorks (client) — tabbed (Job Seekers / Employers), 3 steps each with CTA
-- [x] Footer — dark bg, 4 columns, social icons, copyright
-- [x] Composed in app/page.tsx — Production build verified ✓
+- [x] Rebuilt marketing homepage — Hero (gradient), SearchBar, StatsBar, CategoryGrid, Footer
+- [x] `/login` and `/signup` clean URL pages (canonical routes)
+- [x] Navbar — Find Jobs, Companies, For Employers, About + Login / Sign Up / Post a Job
+- [x] Reusable UI components: JobCard (ui/), StatusChip, KPICard, SearchBar (ui/), SidebarNav
+- [x] HeroSearch client wrapper for server-side homepage
 
 ---
 
-## Phase 3: Authentication
-- [x] Setup Prisma 5.22.0 — schema, generate, db push ✓
-  - [x] prisma/schema.prisma — 6 models, 5 enums, indexes
-  - [x] .env + .env.local — DATABASE_URL (pooler 6543) + DIRECT_URL (session 5432)
-  - [x] lib/prisma.ts — singleton with dev logging
-  - [x] types/database.ts — re-exported types + composite types
-  - [x] package.json — postinstall + db:push/studio/generate scripts
-  - [x] Tables live in Supabase: users, companies, jobs, applications, saved_jobs, resumes
-- [ ] Setup Supabase Auth client (browser + server)
-- [ ] `/login` page + form component
-- [ ] `/signup` page + role selection (Candidate / Employer)
-- [ ] Auth middleware for protected routes
-- [ ] Auth context / session provider
+## Phase 3: Authentication ✓
+- [x] Prisma 5.22 schema — 6 models (User, Company, Job, Application, SavedJob, Resume) + 5 enums
+- [x] Supabase Auth (browser + server SSR clients)
+- [x] LoginForm + SignupForm (email/password + Google OAuth, role selector)
+- [x] Middleware — role-based routing, protects /dashboard/*, /employer/*, /dashboard/admin
+- [x] Zustand auth store + useAuth hook
+- [x] /auth/callback (OAuth + email confirm), /api/auth/signup, /api/users/[id]
+- [x] Navbar auth-aware (avatar + dropdown when logged in)
+- [x] Clean URL routing: /login → /dashboard, /signup → role dashboard
+- [x] Test users created: candidate@kaamkaaj.com, employer@kaamkaaj.com, admin@gmail.com
 
 ---
 
-## Phase 4: Jobs Module
-- [ ] Supabase `jobs` table migration
-- [ ] `/jobs` listing page with filters (type, location, salary)
-- [ ] `/jobs/[id]` detail page
-- [ ] Job search API route (ILIKE queries)
-- [ ] JobCard component
-- [ ] Pagination component
+## Phase 4: Jobs Module ← START HERE
+- [ ] Seed jobs table with sample data (10–15 jobs via Prisma/Supabase)
+- [ ] `/jobs` listing page — job cards grid, filter sidebar (type, location, salary range)
+- [ ] `/jobs/[id]` detail page — full job description, company info, Apply button
+- [ ] `GET /api/jobs` route — list with filters (type, location, salary, search query, pagination)
+- [ ] `GET /api/jobs/[id]` route — single job detail
+- [ ] `POST /api/jobs/[id]/apply` route — candidate applies (creates Application record)
+- [ ] Pagination component (page numbers + prev/next)
+- [ ] SearchBar on /jobs connected to query params
 
 ---
 
-## Phase 5: Candidate Dashboard
-- [ ] `/dashboard/candidate` layout with sidebar
-- [ ] Applied jobs list
-- [ ] Saved jobs list
-- [ ] Resume upload (Supabase Storage)
-- [ ] Profile management page
+## Phase 5: Candidate Dashboard (real data)
+- [x] Dashboard shell — sidebar, top bar, KPI cards, profile completion banner
+- [x] Recent Applications table (sample data)
+- [ ] Wire KPIs to real API (count applications, profile views, saved jobs)
+- [ ] Applied Jobs page `/dashboard/applications` — real applications from DB
+- [ ] Saved Jobs page `/dashboard/saved` — real saved jobs from DB
+- [ ] Save/unsave job from JobCard (toggle + API)
+- [ ] Resume upload page `/dashboard/resume` — Supabase Storage upload
+- [ ] Profile management page `/dashboard/profile` — edit name, phone, avatar
 
 ---
 
-## Phase 6: Employer Dashboard
-- [ ] `/dashboard/employer` layout with sidebar
-- [ ] Post new job form
-- [ ] Manage posted jobs table
-- [ ] View applicants list per job
-- [ ] Analytics cards (total applications, active jobs, etc.)
+## Phase 6: Employer Dashboard (real data)
+- [x] Dashboard shell — sidebar, top bar, KPI cards, listings table, applicants table
+- [ ] Post a Job form `/employer/dashboard/post-job` — full form → POST /api/jobs
+- [ ] My Listings page `/employer/dashboard/listings` — real jobs from DB, status toggle
+- [ ] Applications Received `/employer/dashboard/applications` — real applicants per job
+- [ ] Update application status (Shortlist, Interview, Offer, Reject)
+- [ ] Analytics page `/employer/dashboard/analytics` — charts (applications over time, etc.)
 
 ---
 
-## Phase 7: Admin Dashboard
-- [ ] `/dashboard/admin` layout
-- [ ] Users management table
-- [ ] Jobs management table
-- [ ] Platform stats overview
+## Phase 7: Admin Dashboard (real data)
+- [x] Dashboard shell — sidebar, top bar, KPI cards, users table, jobs table
+- [ ] Users page `/dashboard/admin/users` — real users from DB, suspend/restore
+- [ ] Jobs page `/dashboard/admin/jobs` — real jobs, approve/remove
+- [ ] Platform stats wired to real counts (total users, jobs, applications)
+- [ ] Reports page `/dashboard/admin/reports` — basic platform summary
 
 ---
 
 ## Phase 8: AI Demo Features
-- [ ] Resume analyzer endpoint (mock/simple)
-- [ ] Job match score component (percentage logic)
+- [ ] Resume analyzer endpoint (mock scoring — keywords match)
+- [ ] Job match score component (% match shown on JobCard for logged-in candidate)
 
 ---
 
 ## Phase 9: Polish & Deploy
-- [ ] SEO metadata for all pages
-- [ ] Loading skeleton components
+- [ ] Loading skeleton components (JobCard skeleton, table skeleton)
 - [ ] Error boundary components
+- [ ] SEO metadata for all public pages (/jobs, /jobs/[id], /)
 - [ ] Vercel deployment configuration
 - [ ] Environment variables setup on Vercel
+- [ ] Final build verification (0 TS errors, 0 lint errors)
 
 ---
 
-## Completed
-- [x] **Phase 1: Foundation** — All docs, Skills files, Next.js 14 setup, Tailwind config, shadcn/ui, Button component, base layout, sticky responsive Navbar. Build: ✓
-- [x] **Phase 2: Homepage** — HeroSection, SearchBar, StatsBar (5Cr+/10L+/50L+), CategoryGrid (8 categories), JobCard, FeaturedJobs (6 cards), HowItWorks (tabbed), Footer (dark). Build: ✓
-- [x] **Phase 3 (DB Layer)** — Prisma 5.22 schema with 6 models (User, Company, Job, Application, SavedJob, Resume) + 5 enums. Pushed to Supabase (ap-northeast-1). TypeScript: ✓
+## Completed Phases
+- [x] **Phase 1** — Foundation, docs, Next.js setup. Build ✓
+- [x] **Phase 2** — Marketing homepage rebuilt, reusable UI components, clean URL routing. Build ✓
+- [x] **Phase 3** — Full auth (Supabase + Prisma), middleware, role-based routing, all 3 dashboard shells. Build ✓
 
 ---
 
@@ -137,4 +115,5 @@
 ## Notes
 - Repository: https://github.com/shival2112/kaamkaj
 - Supabase project: czviwnbivyqlfprlctae (ap-northeast-1)
-- Model: claude-sonnet-4-6
+- Dashboard URLs: /dashboard (candidate) · /employer/dashboard · /dashboard/admin
+- Test accounts: candidate@kaamkaaj.com · employer@kaamkaaj.com · admin@gmail.com (all pw = Role@123#)

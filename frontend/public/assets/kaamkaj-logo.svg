@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="36" viewBox="0 0 160 36" fill="none">
+  <rect x="0" y="2" width="32" height="32" rx="8" fill="#5B5BD6"></rect>
+  <path d="M9 9 L9 27 M9 18 L21 9 M9 18 L23 27" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+  <text x="42" y="25" font-family="Plus Jakarta Sans, system-ui, sans-serif" font-weight="800" font-size="20" fill="#5B5BD6" letter-spacing="-0.5">Kaamkaj</text>
+</svg>

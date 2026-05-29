@@ -1,0 +1,170 @@
+/* ============================================================
+   KAAMKAJ DESIGN TOKENS
+   colors_and_type.css — single source of truth for the
+   Kaamkaj design system. Import this file anywhere you build
+   Kaamkaj UI: <link rel="stylesheet" href="/colors_and_type.css">
+   ============================================================ */
+
+/* ---------- Fonts ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* === Brand color ramp === */
+  --primary:        #5B5BD6;  /* CTAs, links, active */
+  --primary-dark:   #4747C2;  /* hover */
+  --primary-mid:    #8B8BDE;  /* icons, secondary borders */
+  --primary-light:  #EBEBFF;  /* chip / tag fills */
+
+  /* === Surface === */
+  --page-bg:        #F5F7FF;
+  --card-bg:        #FFFFFF;
+  --section-alt-bg: #F0F2FF;
+
+  /* === Border === */
+  --border-default: #E5E7EB;
+  --border-focus:   #5B5BD6;
+  --border-strong:  #D1D5DB;
+
+  /* === Text === */
+  --text-primary:   #111827;
+  --text-secondary: #374151;
+  --text-muted:     #6B7280;
+  --text-hint:      #9CA3AF;
+  --text-on-brand:  #FFFFFF;
+
+  /* === Semantic === */
+  --success:        #10B981;
+  --success-light:  #D1FAE5;
+  --success-text:   #065F46;
+  --warning:        #F59E0B;
+  --warning-light:  #FEF3C7;
+  --warning-text:   #92400E;
+  --danger:         #EF4444;
+  --danger-light:   #FEE2E2;
+  --danger-text:    #991B1B;
+  --info:           #3B82F6;
+  --info-light:     #DBEAFE;
+  --info-text:      #1E40AF;
+
+  /* === Category === */
+  --cat-sales:      #FF6B35;
+  --cat-tech:       #5B5BD6;
+  --cat-delivery:   #10B981;
+  --cat-bpo:        #8B5CF6;
+  --cat-finance:    #F59E0B;
+  --cat-teaching:   #EC4899;
+  --cat-health:     #14B8A6;
+  --cat-marketing:  #F97316;
+
+  /* === Spacing scale (4px base) === */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* === Radii === */
+  --r-xs:   4px;   /* badges, tags */
+  --r-sm:   8px;   /* inputs, buttons, small cards */
+  --r-md:  12px;   /* job cards, dropdowns */
+  --r-lg:  16px;   /* hero search, modals */
+  --r-xl:  24px;   /* category cards, big CTAs */
+  --r-pill: 9999px;
+
+  /* === Shadows (indigo-tinted) === */
+  --shadow-sm:     0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:     0 4px 6px -1px rgba(0,0,0,0.07);
+  --shadow-card:   0 2px 8px rgba(91,91,214,0.08);
+  --shadow-card-h: 0 8px 24px rgba(91,91,214,0.15);
+  --shadow-navbar: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-modal:  0 20px 25px -5px rgba(0,0,0,0.08);
+  --ring-focus:    0 0 0 3px rgba(91,91,214,0.15);
+
+  /* === Typography === */
+  --font-heading: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-body:    'DM Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale */
+  --fs-12: 12px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-30: 30px;
+  --fs-36: 36px;
+  --fs-48: 48px;
+
+  /* Semantic type roles */
+  --display-size:   48px;
+  --display-weight: 800;
+  --h1-size: 36px; --h1-weight: 700;
+  --h2-size: 30px; --h2-weight: 700;
+  --h3-size: 24px; --h3-weight: 600;
+  --h4-size: 20px; --h4-weight: 600;
+  --card-title-size: 16px; --card-title-weight: 600;
+  --body-size: 16px; --body-weight: 400; --body-lh: 1.5;
+  --meta-size: 14px; --meta-weight: 500;
+  --chip-size: 12px; --chip-weight: 500;
+
+  /* Motion */
+  --ease: cubic-bezier(.2,.7,.2,1);
+  --dur-fast: 150ms;
+  --dur:      200ms;
+  --dur-slow: 400ms;
+
+  /* Layout */
+  --container-max: 1280px;
+  --navbar-h-d:    64px;
+  --navbar-h-m:    56px;
+}
+
+/* ============================================================
+   Semantic element styles
+   ============================================================ */
+
+html, body {
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--body-size);
+  line-height: var(--body-lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+.k-display {
+  font-family: var(--font-heading);
+  font-weight: var(--display-weight);
+  font-size: var(--display-size);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+h1, .k-h1 { font-family: var(--font-heading); font-weight: var(--h1-weight); font-size: var(--h1-size); line-height: 1.15; letter-spacing: -0.01em; }
+h2, .k-h2 { font-family: var(--font-heading); font-weight: var(--h2-weight); font-size: var(--h2-size); line-height: 1.2;  letter-spacing: -0.01em; }
+h3, .k-h3 { font-family: var(--font-heading); font-weight: var(--h3-weight); font-size: var(--h3-size); line-height: 1.25; }
+h4, .k-h4 { font-family: var(--font-heading); font-weight: var(--h4-weight); font-size: var(--h4-size); line-height: 1.3;  }
+.k-card-title { font-family: var(--font-heading); font-weight: var(--card-title-weight); font-size: var(--card-title-size); line-height: 1.35; }
+.k-body  { font-family: var(--font-body); font-size: var(--body-size); font-weight: var(--body-weight); line-height: var(--body-lh); color: var(--text-secondary); }
+.k-meta  { font-family: var(--font-body); font-size: var(--meta-size); font-weight: var(--meta-weight); color: var(--text-muted); }
+.k-chip  { font-family: var(--font-body); font-size: var(--chip-size); font-weight: var(--chip-weight); }
+code, kbd, samp, .k-mono { font-family: var(--font-mono); font-size: 0.92em; }
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { color: var(--primary-dark); text-decoration: underline; }
+
+/* Mobile step-down */
+@media (max-width: 640px) {
+  :root {
+    --display-size: 30px;
+    --h1-size: 28px;
+    --h2-size: 24px;
+  }
+}

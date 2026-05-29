@@ -10,15 +10,15 @@ const FOOTER_LINKS = {
   ],
   'Job Seekers': [
     { label: 'Browse Jobs', href: '/jobs' },
-    { label: 'Upload Resume', href: '/dashboard/candidate' },
+    { label: 'Upload Resume', href: '/dashboard' },
     { label: 'Job Alerts', href: '/alerts' },
-    { label: 'Saved Jobs', href: '/dashboard/candidate' },
+    { label: 'Saved Jobs', href: '/dashboard' },
     { label: 'Interview Tips', href: '/resources' },
   ],
   Employers: [
     { label: 'Post a Job', href: '/signup?role=employer' },
     { label: 'Find Candidates', href: '/employer/candidates' },
-    { label: 'Employer Dashboard', href: '/dashboard/employer' },
+    { label: 'Employer Dashboard', href: '/employer/dashboard' },
     { label: 'Pricing', href: '/pricing' },
   ],
 } as const;

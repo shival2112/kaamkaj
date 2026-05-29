@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kaamkaj — Candidate Dashboard</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="data.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Re-use the web kit's icons (loaded relative to this file) -->
+  <script type="text/babel" src="../web/Icons.jsx"></script>
+
+  <script type="text/babel" src="Sidebar.jsx"></script>
+  <script type="text/babel" src="TopBar.jsx"></script>
+  <script type="text/babel" src="StatCard.jsx"></script>
+  <script type="text/babel" src="ProfileBanner.jsx"></script>
+  <script type="text/babel" src="ApplicationList.jsx"></script>
+  <script type="text/babel" src="RecommendedJobs.jsx"></script>
+
+  <script type="text/babel">
+    function App() {
+      const [active, setActive] = React.useState('dashboard');
+
+      React.useEffect(() => {
+        try { const s = localStorage.getItem('kaamkaj.dash.view'); if (s) setActive(s); } catch {}
+      }, []);
+      React.useEffect(() => { localStorage.setItem('kaamkaj.dash.view', active); }, [active]);
+
+      return (
+        <div className="d-app" data-screen-label={`Dashboard · ${active}`}>
+          <Sidebar active={active} onNav={setActive}/>
+          <main className="d-main">
+            <TopBar/>
+
+            {active === 'dashboard' && <>
+              <div className="d-greeting">
+                <h1>Good morning, {dData.user.name.split(' ')[0]} 👋</h1>
+                <p>You have 3 new application updates and 12 new job matches near {dData.user.location.split(',')[0]}.</p>
+              </div>
+
+              <div className="d-section">
+                <ProfileBanner/>
+                <div className="d-stat-grid">
+                  {dData.stats.map(s => <StatCard key={s.label} stat={s}/>)}
+                </div>
+              </div>
+
+              <div className="d-section">
+                <div className="d-section-head">
+                  <h2>Recent applications</h2>
+                  <a href="#" className="d-section-link" onClick={(e)=>{e.preventDefault(); setActive('applications');}}>View all</a>
+                </div>
+                <ApplicationList items={dData.applications.slice(0,4)}/>
+              </div>
+
+              <div className="d-section">
+                <div className="d-section-head">
+                  <h2>Recommended for you</h2>
+                  <a href="#" className="d-section-link">See all matches</a>
+                </div>
+                <RecommendedJobs jobs={dData.recommended}/>
+              </div>
+            </>}
+
+            {active === 'applications' && <>
+              <div className="d-greeting">
+                <h1>My Applications</h1>
+                <p>{dData.applications.length} applications across all stages. Tap any row to see employer notes and timeline.</p>
+              </div>
+              <div className="d-section" style={{marginTop:16}}>
+                <ApplicationList items={dData.applications}/>
+              </div>
+            </>}
+
+            {active === 'saved' && <>
+              <div className="d-greeting">
+                <h1>Saved Jobs</h1>
+                <p>Jobs you bookmarked from Find Jobs. Apply when you're ready.</p>
+              </div>
+              <div className="d-section" style={{marginTop:16}}>
+                <RecommendedJobs jobs={[...dData.recommended, ...dData.recommended].slice(0,6)}/>
+              </div>
+            </>}
+
+            {active === 'profile' && (
+              <div className="d-greeting">
+                <h1>My Profile</h1>
+                <p style={{maxWidth:560}}>Profile editor would live here — work history, skills, photo, languages, references. Out of scope for the kit; use the Resume builder card on Dashboard for a glimpse of the form patterns.</p>
+              </div>
+            )}
+            {(active === 'resume' || active === 'messages' || active === 'settings' || active === 'logout' || active === 'apply') && (
+              <div className="d-greeting">
+                <h1 style={{textTransform:'capitalize'}}>{active}</h1>
+                <p>This screen is in the kit's scope but not built out — the goal is to show navigation behaviour. Click Dashboard in the sidebar to return.</p>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+// Sample data for the Kaamkaj web UI kit. Realistic but synthetic.
+window.kData = {
+  categories: [
+    { key: 'sales',     name: 'Sales',     color: '#FF6B35', count: '12,450 jobs', icon: 'TrendingUp' },
+    { key: 'tech',      name: 'Tech',      color: '#5B5BD6', count: '8,920 jobs',  icon: 'Code' },
+    { key: 'delivery',  name: 'Delivery',  color: '#10B981', count: '24,100 jobs', icon: 'Truck' },
+    { key: 'bpo',       name: 'BPO',       color: '#8B5CF6', count: '6,310 jobs',  icon: 'Headphones' },
+    { key: 'finance',   name: 'Finance',   color: '#F59E0B', count: '4,780 jobs',  icon: 'Rupee' },
+    { key: 'teaching',  name: 'Teaching',  color: '#EC4899', count: '3,290 jobs',  icon: 'BookOpen' },
+    { key: 'health',    name: 'Healthcare',color: '#14B8A6', count: '5,120 jobs',  icon: 'Heart' },
+    { key: 'marketing', name: 'Marketing', color: '#F97316', count: '2,640 jobs',  icon: 'Megaphone' },
+  ],
+  stats: [
+    { value: '5 Crore+', label: 'Job Seekers' },
+    { value: '10 Lakh+', label: 'Verified Employers' },
+    { value: '50 Lakh+', label: 'Jobs Posted' },
+    { value: '500+',     label: 'Cities Covered' },
+  ],
+  jobs: [
+    {
+      id: 'KMK-48291', title: 'Senior Sales Executive', company: 'Tata Capital Limited',
+      logo: { bg: 'linear-gradient(135deg,#FF6B35,#F59E0B)', text: 'TC' }, verified: true,
+      location: 'Mumbai, Maharashtra', salary: '₹35,000 – ₹50,000/month', type: 'Full-time',
+      experience: '2–5 years', skills: ['B2B Sales', 'Communication', 'Hindi · English'],
+      posted: '2 days ago', applicants: 28, category: 'sales',
+    },
+    {
+      id: 'KMK-48312', title: 'Delivery Partner', company: 'Swiggy',
+      logo: { bg: '#FC8019', text: 'SW' }, verified: true,
+      location: 'Bangalore, Karnataka', salary: '₹18,000 – ₹28,000/month', type: 'Full-time',
+      experience: 'Fresher', skills: ['Two-wheeler', 'Smartphone', 'Local area'],
+      posted: '1 day ago', applicants: 142, category: 'delivery',
+    },
+    {
+      id: 'KMK-48298', title: 'Customer Support Executive', company: 'TeleCare Solutions',
+      logo: { bg: '#8B5CF6', text: 'TS' }, verified: true,
+      location: 'Work from Home', salary: '₹15,000 – ₹22,000/month', type: 'Work from Home',
+      experience: '0–2 years', skills: ['Hindi', 'English', 'Communication'],
+      posted: '3 days ago', applicants: 89, category: 'bpo',
+    },
+    {
+      id: 'KMK-48267', title: 'Junior Accountant', company: 'Krishna Traders',
+      logo: { bg: '#F59E0B', text: 'KT' }, verified: false,
+      location: 'Pune, Maharashtra', salary: '₹20,000 – ₹28,000/month', type: 'Full-time',
+      experience: '1–3 years', skills: ['Tally', 'MS Excel', 'GST'],
+      posted: '5 days ago', applicants: 34, category: 'finance',
+    },
+    {
+      id: 'KMK-48254', title: 'Frontend Developer', company: 'Brightline Studio',
+      logo: { bg: '#5B5BD6', text: 'BS' }, verified: true,
+      location: 'Hybrid · Bangalore', salary: '₹45,000 – ₹70,000/month', type: 'Full-time',
+      experience: '2–4 years', skills: ['React', 'TypeScript', 'CSS'],
+      posted: 'Today', applicants: 51, category: 'tech',
+    },
+    {
+      id: 'KMK-48240', title: 'Field Sales Trainee', company: 'PolicyBazaar',
+      logo: { bg: '#10B981', text: 'PB' }, verified: true,
+      location: 'Delhi NCR', salary: '₹16,000 – ₹24,000/month', type: 'Internship',
+      experience: 'Fresher', skills: ['Communication', 'Cold calling'],
+      posted: '4 days ago', applicants: 67, category: 'sales',
+    },
+  ],
+  companies: [
+    { name: 'Tata', bg: 'linear-gradient(135deg,#0066B3,#003E7E)', text: 'TATA' },
+    { name: 'Reliance', bg: '#D71921', text: 'RIL' },
+    { name: 'Swiggy', bg: '#FC8019', text: 'SW' },
+    { name: 'Zomato', bg: '#E23744', text: 'ZO' },
+    { name: 'Flipkart', bg: '#2874F0', text: 'FK' },
+    { name: 'Infosys', bg: '#007CC3', text: 'IN' },
+    { name: 'Wipro', bg: '#341A4D', text: 'WP' },
+    { name: 'BYJU\u2019S', bg: '#502E91', text: 'BJ' },
+  ],
+};
