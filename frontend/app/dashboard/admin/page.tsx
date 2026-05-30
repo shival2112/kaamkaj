@@ -1,155 +1,72 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Search,
-  Bell,
-  Globe,
-  Users,
-  Briefcase,
-  ClipboardList,
-  TrendingUp,
-  ShieldCheck,
-  LayoutDashboard,
-  FileBarChart,
-  Settings,
-  UserPlus,
+  Search, Bell, Globe, Users, Briefcase, ClipboardList,
+  TrendingUp, ShieldCheck, LayoutDashboard, FileBarChart, UserPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { KPICard } from '@/components/ui/KPICard';
-import { StatusChip, type ApplicationStatus } from '@/components/ui/StatusChip';
-import {
-  DashboardSidebar,
-  type SidebarNavSection,
-} from '@/components/dashboard/DashboardSidebar';
+import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 
-// ─── Admin nav ────────────────────────────────────────────────────────────────
+// ─── Nav ─────────────────────────────────────────────────────────────────────
 
 const ADMIN_NAV: SidebarNavSection[] = [
   {
     label: 'Platform',
     items: [
-      { href: '/dashboard/admin', label: 'Overview', icon: LayoutDashboard },
-      { href: '/dashboard/admin/users', label: 'Users', icon: Users },
-      { href: '/dashboard/admin/jobs', label: 'Jobs', icon: Briefcase },
-      { href: '/dashboard/admin/applications', label: 'Applications', icon: ClipboardList },
-      { href: '/dashboard/admin/reports', label: 'Reports', icon: FileBarChart },
-    ],
-  },
-  {
-    label: 'Account',
-    items: [
-      { href: '/dashboard/admin/settings', label: 'Settings', icon: Settings },
+      { href: '/dashboard/admin',         label: 'Overview', icon: LayoutDashboard },
+      { href: '/dashboard/admin/users',   label: 'Users',    icon: Users },
+      { href: '/dashboard/admin/jobs',    label: 'Jobs',     icon: Briefcase },
+      { href: '/dashboard/admin/reports', label: 'Reports',  icon: FileBarChart },
     ],
   },
 ];
 
-// ─── Sample data ──────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type KPIItem = { icon: React.ReactNode; label: string; value: string | number; change: string };
+interface Stats {
+  totalUsers: number; totalJobs: number; activeJobs: number;
+  totalApplications: number; newUsersToday: number;
+}
 
-const KPI_DATA: KPIItem[] = [
-  { icon: <Users className="h-5 w-5" />, label: 'Total Users', value: '1,284', change: '+48 this week' },
-  { icon: <Briefcase className="h-5 w-5" />, label: 'Jobs Posted', value: '3,920', change: '+124 this week' },
-  { icon: <ClipboardList className="h-5 w-5" />, label: 'Applications', value: '18,640', change: '+892 this week' },
-  { icon: <TrendingUp className="h-5 w-5" />, label: 'Active Today', value: 247, change: '+31 vs yesterday' },
-];
+interface UserRow {
+  id: string; name: string; email: string; role: string;
+  isVerified: boolean; createdAt: string;
+  _count: { applications: number };
+}
 
-type UserRole = 'CANDIDATE' | 'EMPLOYER' | 'ADMIN';
-type UserStatus = 'Active' | 'Suspended';
-
-type UserRow = {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  joined: string;
-  status: UserStatus;
-  initial: string;
-  color: string;
-};
-
-const RECENT_USERS: UserRow[] = [
-  { id: '1', name: 'Priya Sharma',    email: 'priya@example.com',   role: 'CANDIDATE', joined: 'May 22', status: 'Active',    initial: 'P', color: 'bg-pink-500' },
-  { id: '2', name: 'Rahul Mehta',     email: 'rahul@techcorp.in',   role: 'EMPLOYER',  joined: 'May 21', status: 'Active',    initial: 'R', color: 'bg-blue-500' },
-  { id: '3', name: 'Ananya Singh',    email: 'ananya@example.com',  role: 'CANDIDATE', joined: 'May 20', status: 'Suspended', initial: 'A', color: 'bg-violet-500' },
-  { id: '4', name: 'TechCorp India',  email: 'hr@techcorp.in',      role: 'EMPLOYER',  joined: 'May 19', status: 'Active',    initial: 'T', color: 'bg-orange-500' },
-];
-
-type JobStatus = 'Active' | 'Pending' | 'Closed';
-
-type JobRow = {
-  id: string;
-  title: string;
-  company: string;
-  status: JobStatus;
-  posted: string;
-  applications: number;
-  initial: string;
-  color: string;
-};
-
-const RECENT_JOBS: JobRow[] = [
-  { id: '1', title: 'Senior React Developer', company: 'TechCorp India',  status: 'Active',  posted: 'May 20', applications: 12, initial: 'T', color: 'bg-blue-500' },
-  { id: '2', title: 'Backend Engineer',        company: 'StartupXYZ',      status: 'Pending', posted: 'May 18', applications: 3,  initial: 'S', color: 'bg-violet-500' },
-  { id: '3', title: 'Product Manager',         company: 'BigCorp Ltd',     status: 'Active',  posted: 'May 15', applications: 8,  initial: 'B', color: 'bg-orange-500' },
-  { id: '4', title: 'UI/UX Designer',          company: 'Digital Agency',  status: 'Closed',  posted: 'May 10', applications: 0,  initial: 'D', color: 'bg-green-600' },
-];
+interface JobRow {
+  id: string; title: string; location: string; status: string; createdAt: string;
+  company: { name: string };
+  _count: { applications: number };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const USER_STATUS_STYLES: Record<UserStatus, string> = {
-  Active:    'bg-green-50 text-green-700',
-  Suspended: 'bg-red-50 text-red-600',
-};
+const TILE_COLORS = ['bg-blue-500','bg-violet-500','bg-green-600','bg-orange-500','bg-pink-500','bg-indigo-500','bg-teal-500'];
+function tileColor(name: string) {
+  let h = 0; for (const c of name) h = c.charCodeAt(0) + h * 31;
+  return TILE_COLORS[Math.abs(h) % TILE_COLORS.length];
+}
 
-const JOB_STATUS_STYLES: Record<JobStatus, string> = {
-  Active:  'bg-green-50 text-green-700',
-  Pending: 'bg-yellow-50 text-yellow-700',
-  Closed:  'bg-gray-100 text-gray-500',
-};
-
-const ROLE_STYLES: Record<UserRole, string> = {
+const ROLE_STYLES: Record<string, string> = {
   CANDIDATE: 'bg-blue-50 text-blue-700',
   EMPLOYER:  'bg-violet-50 text-violet-700',
   ADMIN:     'bg-primary/10 text-primary',
 };
 
-function Chip({ label, className }: { label: string; className: string }) {
-  return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', className)}>
-      {label}
-    </span>
-  );
-}
-
-function ActionBtn({
-  children,
-  variant = 'default',
-}: {
-  children: React.ReactNode;
-  variant?: 'default' | 'danger' | 'success';
-}) {
-  return (
-    <button
-      className={cn(
-        'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-        variant === 'danger'
-          ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
-          : variant === 'success'
-          ? 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
-          : 'border-gray-200 bg-white text-muted-foreground hover:bg-gray-50 hover:text-foreground'
-      )}
-    >
-      {children}
-    </button>
-  );
-}
+const JOB_STATUS_STYLES: Record<string, string> = {
+  ACTIVE:  'bg-green-50 text-green-700',
+  DRAFT:   'bg-yellow-50 text-yellow-700',
+  CLOSED:  'bg-gray-100 text-gray-500',
+  EXPIRED: 'bg-gray-100 text-gray-500',
+};
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -174,156 +91,127 @@ export default function AdminDashboardPage() {
     }
   }, [user, isLoading, userRole, router]);
 
+  const [stats,       setStats]       = useState<Stats | null>(null);
+  const [recentUsers, setRecentUsers] = useState<UserRow[]>([]);
+  const [recentJobs,  setRecentJobs]  = useState<JobRow[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || userRole !== 'ADMIN') return;
+    Promise.all([
+      fetch('/api/admin/stats').then(r => r.json()),
+      fetch('/api/admin/users?page=1').then(r => r.json()),
+      fetch('/api/admin/jobs?page=1').then(r => r.json()),
+    ]).then(([s, u, j]) => {
+      setStats(s);
+      setRecentUsers((u.users ?? []).slice(0, 5));
+      setRecentJobs((j.jobs ?? []).slice(0, 5));
+    }).finally(() => setDataLoading(false));
+  }, [user, userRole]);
+
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'Admin';
-
-  const initials =
-    displayName
-      .split(' ')
-      .map((w) => w[0] ?? '')
-      .filter(Boolean)
-      .slice(0, 2)
-      .join('')
-      .toUpperCase() || 'A';
-
+  const initials = displayName.split(' ').map((w: string) => w[0] ?? '').filter(Boolean).slice(0, 2).join('').toUpperCase() || 'A';
   const greeting = useMemo(getGreeting, []);
 
   const handleLogout = async () => {
-    const supabase = createSupabaseClient();
-    await supabase.auth.signOut();
-    clearUser();
-    router.push('/');
+    await createSupabaseClient().auth.signOut();
+    clearUser(); router.push('/');
   };
 
   if (isLoading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>;
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* ── Sidebar ── */}
-      <DashboardSidebar
-        displayName={displayName}
-        role="Admin"
-        onLogout={handleLogout}
-        primaryButtonLabel="Add User"
-        primaryButtonIcon={UserPlus}
-        onPrimaryButton={() => router.push('/dashboard/admin/users/new')}
-        navSections={ADMIN_NAV}
-      />
+      <DashboardSidebar displayName={displayName} role="Admin" onLogout={handleLogout}
+        primaryButtonLabel="Add User" primaryButtonIcon={UserPlus}
+        onPrimaryButton={() => router.push('/dashboard/admin/users')}
+        navSections={ADMIN_NAV} />
 
-      {/* ── Main content ── */}
       <div className="flex flex-1 flex-col overflow-hidden bg-gray-50">
-
         {/* Top bar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
           <div className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2">
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search users, jobs, companies..."
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-            />
+            <input type="text" placeholder="Search users, jobs..."
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
           </div>
           <div className="flex items-center gap-2">
-            <button
-              aria-label="Notifications"
-              className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-foreground"
-            >
+            <button aria-label="Notifications" className="relative rounded-lg p-2 text-muted-foreground hover:bg-gray-100">
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <button
-              aria-label="Language"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-foreground"
-            >
+            <button aria-label="Language" className="rounded-lg p-2 text-muted-foreground hover:bg-gray-100">
               <Globe className="h-5 w-5" />
             </button>
-            <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-              {initials}
-            </div>
+            <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">{initials}</div>
           </div>
         </header>
 
-        {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-6">
-
-          {/* Greeting */}
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <ShieldCheck className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                {greeting}, {displayName} 👋
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Platform overview — all systems operational.
-              </p>
+              <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName} 👋</h1>
+              <p className="text-sm text-muted-foreground">Platform overview — all systems operational.</p>
             </div>
           </div>
 
           {/* KPI cards */}
           <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-            {KPI_DATA.map(({ icon, label, value, change }) => (
-              <KPICard key={label} icon={icon} label={label} value={value} change={change} />
-            ))}
+            <KPICard icon={<Users className="h-5 w-5" />} label="Total Users"
+              value={dataLoading ? '—' : stats?.totalUsers ?? 0} change={dataLoading ? '' : `+${stats?.newUsersToday ?? 0} today`} />
+            <KPICard icon={<Briefcase className="h-5 w-5" />} label="Total Jobs"
+              value={dataLoading ? '—' : stats?.totalJobs ?? 0} change={dataLoading ? '' : `${stats?.activeJobs ?? 0} active`} />
+            <KPICard icon={<ClipboardList className="h-5 w-5" />} label="Applications"
+              value={dataLoading ? '—' : stats?.totalApplications ?? 0} change={dataLoading ? '' : 'total'} />
+            <KPICard icon={<TrendingUp className="h-5 w-5" />} label="New Today"
+              value={dataLoading ? '—' : stats?.newUsersToday ?? 0} change={dataLoading ? '' : 'new users'} />
           </div>
 
           {/* Recent Users */}
           <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h2 className="font-semibold text-foreground">Recent Users</h2>
-              <Link href="/dashboard/admin/users" className="text-sm font-medium text-primary hover:underline">
-                View all
-              </Link>
+              <Link href="/dashboard/admin/users" className="text-sm font-medium text-primary hover:underline">View all</Link>
             </div>
-
-            {/* Column headers */}
-            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['USER', 'EMAIL', 'ROLE', 'JOINED', 'STATUS', 'ACTIONS'] as const).map((col) => (
-                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {col}
-                </span>
+            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4 border-b border-gray-100 px-6 py-3">
+              {(['USER', 'EMAIL', 'ROLE', 'JOINED', 'STATUS'] as const).map(col => (
+                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
               ))}
             </div>
 
-            {/* Rows */}
-            {RECENT_USERS.map(({ id, name, email, role, joined, status, initial, color }) => (
-              <div
-                key={id}
-                className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50"
-              >
-                {/* USER */}
+            {dataLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : recentUsers.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">No users yet.</p>
+            ) : recentUsers.map(u => (
+              <div key={u.id}
+                className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${color}`}>
-                    {initial}
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(u.name)}`}>
+                    {u.name[0]?.toUpperCase() ?? '?'}
                   </div>
-                  <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{u.name}</p>
                 </div>
-
-                {/* EMAIL */}
-                <p className="truncate text-sm text-muted-foreground">{email}</p>
-
-                {/* ROLE */}
-                <Chip label={role} className={ROLE_STYLES[role]} />
-
-                {/* JOINED */}
-                <p className="text-sm text-muted-foreground">{joined}</p>
-
-                {/* STATUS */}
-                <Chip label={status} className={USER_STATUS_STYLES[status]} />
-
-                {/* ACTIONS */}
-                <div className="flex items-center gap-1.5">
-                  <ActionBtn>View</ActionBtn>
-                  <ActionBtn variant={status === 'Active' ? 'danger' : 'success'}>
-                    {status === 'Active' ? 'Suspend' : 'Restore'}
-                  </ActionBtn>
-                </div>
+                <p className="truncate text-sm text-muted-foreground">{u.email}</p>
+                <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', ROLE_STYLES[u.role] ?? 'bg-gray-100 text-gray-600')}>
+                  {u.role.charAt(0) + u.role.slice(1).toLowerCase()}
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(u.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </p>
+                <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  u.isVerified ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600')}>
+                  {u.isVerified ? 'Active' : 'Suspended'}
+                </span>
               </div>
             ))}
           </div>
@@ -332,53 +220,37 @@ export default function AdminDashboardPage() {
           <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h2 className="font-semibold text-foreground">Recent Jobs</h2>
-              <Link href="/dashboard/admin/jobs" className="text-sm font-medium text-primary hover:underline">
-                View all
-              </Link>
+              <Link href="/dashboard/admin/jobs" className="text-sm font-medium text-primary hover:underline">View all</Link>
             </div>
-
-            {/* Column headers */}
-            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['JOB TITLE', 'COMPANY', 'APPS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map((col) => (
-                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {col}
-                </span>
+            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] gap-4 border-b border-gray-100 px-6 py-3">
+              {(['JOB TITLE', 'COMPANY', 'APPS', 'STATUS', 'POSTED'] as const).map(col => (
+                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
               ))}
             </div>
 
-            {/* Rows */}
-            {RECENT_JOBS.map(({ id, title, company, status, posted, applications, initial, color }) => (
-              <div
-                key={id}
-                className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50"
-              >
-                {/* JOB */}
+            {dataLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : recentJobs.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">No jobs yet.</p>
+            ) : recentJobs.map(job => (
+              <div key={job.id}
+                className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${color}`}>
-                    {initial}
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${tileColor(job.company.name)}`}>
+                    {job.company.name[0]?.toUpperCase() ?? '?'}
                   </div>
-                  <p className="truncate text-sm font-semibold text-foreground">{title}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{job.title}</p>
                 </div>
-
-                {/* COMPANY */}
-                <p className="truncate text-sm text-muted-foreground">{company}</p>
-
-                {/* APPS */}
-                <p className="text-sm font-medium text-foreground">{applications}</p>
-
-                {/* STATUS */}
-                <Chip label={status} className={JOB_STATUS_STYLES[status]} />
-
-                {/* POSTED */}
-                <p className="text-sm text-muted-foreground">{posted}</p>
-
-                {/* ACTIONS */}
-                <div className="flex items-center gap-1.5">
-                  <ActionBtn>View</ActionBtn>
-                  {status === 'Pending' && <ActionBtn variant="success">Approve</ActionBtn>}
-                  {status === 'Active'  && <ActionBtn variant="danger">Remove</ActionBtn>}
-                  {status === 'Closed'  && <ActionBtn>Reopen</ActionBtn>}
-                </div>
+                <p className="truncate text-sm text-muted-foreground">{job.company.name}</p>
+                <p className="text-sm font-medium text-foreground">{job._count.applications}</p>
+                <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', JOB_STATUS_STYLES[job.status] ?? 'bg-gray-100 text-gray-500')}>
+                  {job.status.charAt(0) + job.status.slice(1).toLowerCase()}
+                </span>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(job.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </p>
               </div>
             ))}
           </div>

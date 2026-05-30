@@ -28,7 +28,6 @@ export default function ApplicationsPage() {
   const { user, dbUser, isLoading } = useAuth();
   const clearUser = useAuthStore((s) => s.clearUser);
 
-  const userRole = ((user?.user_metadata?.role as string) ?? 'CANDIDATE').toUpperCase();
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login');

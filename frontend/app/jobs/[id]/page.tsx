@@ -57,10 +57,22 @@ export async function generateMetadata(
     where: { id: params.id },
     include: { company: { select: { name: true } } },
   });
-  if (!job) return { title: 'Job Not Found' };
+  if (!job) return { title: 'Job Not Found | KaamKaaj' };
+  const desc = job.description.slice(0, 155) + '…';
   return {
-    title: `${job.title} at ${job.company.name}`,
-    description: job.description.slice(0, 160),
+    title: `${job.title} at ${job.company.name} | KaamKaaj`,
+    description: desc,
+    openGraph: {
+      title: `${job.title} at ${job.company.name}`,
+      description: desc,
+      type: 'article',
+      siteName: 'KaamKaaj',
+    },
+    twitter: {
+      card: 'summary',
+      title: `${job.title} at ${job.company.name}`,
+      description: desc,
+    },
   };
 }
 

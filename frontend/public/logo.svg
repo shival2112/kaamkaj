@@ -1,0 +1,32 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kk-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#009a6e"/>
+      <stop offset="100%" stop-color="#006a4e"/>
+    </linearGradient>
+    <linearGradient id="kk-accent" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#c8f5e6" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="48" height="48" rx="12" fill="url(#kk-bg)"/>
+
+  <!-- Left K: vertical bar -->
+  <rect x="8" y="10" width="3.5" height="28" rx="1.75" fill="url(#kk-accent)"/>
+  <!-- Left K: top arm -->
+  <line x1="11" y1="24" x2="22" y2="11" stroke="url(#kk-accent)" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Left K: bottom arm -->
+  <line x1="11" y1="24" x2="22" y2="37" stroke="url(#kk-accent)" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Right K: vertical bar (slightly smaller opacity for layered depth) -->
+  <rect x="26.5" y="10" width="3.5" height="28" rx="1.75" fill="white" fill-opacity="0.72"/>
+  <!-- Right K: top arm -->
+  <line x1="30" y1="24" x2="41" y2="11" stroke="white" stroke-opacity="0.72" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Right K: bottom arm -->
+  <line x1="30" y1="24" x2="41" y2="37" stroke="white" stroke-opacity="0.72" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Small connector dot between the two Ks for visual unity -->
+  <circle cx="24" cy="24" r="2.2" fill="white" fill-opacity="0.9"/>
+</svg>

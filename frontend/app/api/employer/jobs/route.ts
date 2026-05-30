@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { JobType, ExperienceLevel } from '@prisma/client';
-import { randomUUID } from 'crypto';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -52,27 +53,22 @@ export async function POST(request: Request) {
     if (!validTypes.includes(type)) return NextResponse.json({ error: 'Invalid job type' }, { status: 400 });
     if (!validLevels.includes(experienceLevel)) return NextResponse.json({ error: 'Invalid experience level' }, { status: 400 });
 
-    // Get or auto-create company
+    // Get or auto-create company for this employer
     let company = await prisma.company.findUnique({ where: { ownerId: user.id } });
     if (!company) {
       const displayName = (user.user_metadata?.name as string) ?? user.email?.split('@')[0] ?? 'Employer';
       company = await prisma.company.create({
         data: {
-          id: randomUUID(),
           name: `${displayName}'s Company`,
           ownerId: user.id,
-          created_at: new Date(),
-          updated_at: new Date(),
-        } as Parameters<typeof prisma.company.create>[0]['data'],
+        },
       });
     }
 
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const job = await prisma.job.create({
       data: {
-        id: randomUUID(),
         title: title.trim(),
         description: description.trim(),
         companyId: company.id,

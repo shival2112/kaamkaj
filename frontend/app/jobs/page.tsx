@@ -2,14 +2,27 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MapPin, IndianRupee, Clock, Search, Briefcase } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { JobType, JobStatus } from '@prisma/client';
 import { JobFilters } from '@/components/jobs/JobFilters';
 import { Pagination } from '@/components/ui/Pagination';
+import { SaveButton } from '@/components/jobs/SaveButton';
 import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
-  title: 'Find Jobs in India',
-  description: 'Browse 50 Lakh+ jobs across India. Filter by type, location, and salary.',
+  title: 'Find Jobs in India | KaamKaaj',
+  description: 'Browse 50 Lakh+ jobs across India. Filter by job type, location, and salary range.',
+  openGraph: {
+    title: 'Find Jobs in India | KaamKaaj',
+    description: 'Browse 50 Lakh+ jobs across India. Filter by type, location, and salary.',
+    type: 'website',
+    siteName: 'KaamKaaj',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Find Jobs in India | KaamKaaj',
+    description: 'Browse 50 Lakh+ jobs across India.',
+  },
 };
 
 const PAGE_SIZE = 12;
@@ -41,6 +54,13 @@ function timeAgo(date: Date) {
   if (days < 7) return `${days} days ago`;
   const w = Math.floor(days / 7);
   return w === 1 ? '1 week ago' : `${w} weeks ago`;
+}
+
+function computeMatchScore(resumeSkills: string[], jobSkills: string[]): number | null {
+  if (!resumeSkills.length || !jobSkills.length) return null;
+  const norm = resumeSkills.map(s => s.toLowerCase().trim());
+  const matched = jobSkills.filter(s => norm.some(r => r.includes(s.toLowerCase()) || s.toLowerCase().includes(r)));
+  return Math.round((matched.length / jobSkills.length) * 100);
 }
 
 const TYPE_LABELS: Record<JobType, string> = {
@@ -81,6 +101,9 @@ export default async function JobsPage({ searchParams }: PageProps) {
     ...(salaryMax  && { salaryMax: { lte: salaryMax } }),
   };
 
+  // Fetch jobs + optional candidate skills for match scores in parallel
+  // Auth/resume fetch is wrapped so a DB hiccup never crashes the whole page
+  let candidateSkills: string[] = [];
   const [jobs, total] = await Promise.all([
     prisma.job.findMany({
       where,
@@ -91,6 +114,20 @@ export default async function JobsPage({ searchParams }: PageProps) {
     }),
     prisma.job.count({ where }),
   ]);
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const resume = await prisma.resume.findUnique({
+        where: { userId: user.id },
+        select: { parsedData: true },
+      });
+      candidateSkills = ((resume?.parsedData as { skills?: string[] })?.skills) ?? [];
+    }
+  } catch {
+    // Non-fatal — match badges simply won't show
+  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -159,8 +196,9 @@ export default async function JobsPage({ searchParams }: PageProps) {
               <>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {jobs.map((job) => {
-                    const salary = formatSalary(job.salaryMin, job.salaryMax);
-                    const color  = tileColor(job.company.name);
+                    const salary     = formatSalary(job.salaryMin, job.salaryMax);
+                    const color      = tileColor(job.company.name);
+                    const matchScore = computeMatchScore(candidateSkills, job.skills);
                     return (
                       <Link
                         key={job.id}
@@ -172,9 +210,22 @@ export default async function JobsPage({ searchParams }: PageProps) {
                           <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white', color)}>
                             {job.company.name[0].toUpperCase()}
                           </div>
-                          <span className={cn('rounded-full border px-2.5 py-0.5 text-xs font-medium', TYPE_STYLES[job.type])}>
-                            {TYPE_LABELS[job.type]}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('rounded-full border px-2.5 py-0.5 text-xs font-medium', TYPE_STYLES[job.type])}>
+                              {TYPE_LABELS[job.type]}
+                            </span>
+                            {matchScore !== null && (
+                              <span className={cn(
+                                'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                matchScore >= 70 ? 'bg-green-50 text-green-700' :
+                                matchScore >= 40 ? 'bg-amber-50 text-amber-700' :
+                                                   'bg-red-50 text-red-600',
+                              )}>
+                                {matchScore}% match
+                              </span>
+                            )}
+                            <SaveButton jobId={job.id} variant="icon" />
+                          </div>
                         </div>
 
                         {/* Title + company */}

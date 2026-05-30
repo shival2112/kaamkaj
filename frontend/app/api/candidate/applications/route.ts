@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 const PAGE_SIZE = 10;
 
 export async function GET(request: Request) {

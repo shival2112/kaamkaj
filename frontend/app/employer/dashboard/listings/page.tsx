@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import {
-  LayoutDashboard, ClipboardList, BarChart3, Settings,
+  LayoutDashboard, ClipboardList, BarChart3,
 } from 'lucide-react';
 
 const EMPLOYER_NAV: SidebarNavSection[] = [
@@ -18,12 +18,11 @@ const EMPLOYER_NAV: SidebarNavSection[] = [
     label: 'Manage',
     items: [
       { href: '/employer/dashboard',             label: 'Overview',              icon: LayoutDashboard },
-      { href: '/employer/dashboard/listings',     label: 'My Listings',           icon: Layers },
-      { href: '/employer/dashboard/applications', label: 'Applications Received', icon: ClipboardList },
-      { href: '/employer/dashboard/analytics',    label: 'Analytics',             icon: BarChart3 },
+      { href: '/employer/dashboard/listings',    label: 'My Listings',           icon: Layers },
+      { href: '/employer/dashboard/applications',label: 'Applications Received', icon: ClipboardList },
+      { href: '/employer/dashboard/analytics',   label: 'Analytics',             icon: BarChart3 },
     ],
   },
-  { label: 'Account', items: [{ href: '/employer/dashboard/settings', label: 'Settings', icon: Settings }] },
 ];
 
 type JobStatus = 'ACTIVE' | 'DRAFT' | 'CLOSED' | 'EXPIRED';

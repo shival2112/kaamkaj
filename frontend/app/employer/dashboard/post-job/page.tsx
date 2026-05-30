@@ -9,21 +9,19 @@ import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import {
-  LayoutDashboard, Layers, ClipboardList, BarChart3,
-  Settings, PlusCircle,
+  LayoutDashboard, Layers, ClipboardList, BarChart3, PlusCircle,
 } from 'lucide-react';
 
 const EMPLOYER_NAV: SidebarNavSection[] = [
   {
     label: 'Manage',
     items: [
-      { href: '/employer/dashboard',              label: 'Overview',               icon: LayoutDashboard },
-      { href: '/employer/dashboard/listings',      label: 'My Listings',            icon: Layers },
-      { href: '/employer/dashboard/applications',  label: 'Applications Received',  icon: ClipboardList },
-      { href: '/employer/dashboard/analytics',     label: 'Analytics',              icon: BarChart3 },
+      { href: '/employer/dashboard',             label: 'Overview',              icon: LayoutDashboard },
+      { href: '/employer/dashboard/listings',    label: 'My Listings',           icon: Layers },
+      { href: '/employer/dashboard/applications',label: 'Applications Received', icon: ClipboardList },
+      { href: '/employer/dashboard/analytics',   label: 'Analytics',             icon: BarChart3 },
     ],
   },
-  { label: 'Account', items: [{ href: '/employer/dashboard/settings', label: 'Settings', icon: Settings }] },
 ];
 
 const JOB_TYPES = [

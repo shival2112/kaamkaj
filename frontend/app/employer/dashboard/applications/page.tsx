@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ClipboardList, PlusCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,7 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
 import {
-  LayoutDashboard, Layers, BarChart3, Settings,
+  LayoutDashboard, Layers, BarChart3,
 } from 'lucide-react';
 
 const EMPLOYER_NAV: SidebarNavSection[] = [
@@ -18,12 +18,11 @@ const EMPLOYER_NAV: SidebarNavSection[] = [
     label: 'Manage',
     items: [
       { href: '/employer/dashboard',             label: 'Overview',              icon: LayoutDashboard },
-      { href: '/employer/dashboard/listings',     label: 'My Listings',           icon: Layers },
-      { href: '/employer/dashboard/applications', label: 'Applications Received', icon: ClipboardList },
-      { href: '/employer/dashboard/analytics',    label: 'Analytics',             icon: BarChart3 },
+      { href: '/employer/dashboard/listings',    label: 'My Listings',           icon: Layers },
+      { href: '/employer/dashboard/applications',label: 'Applications Received', icon: ClipboardList },
+      { href: '/employer/dashboard/analytics',   label: 'Analytics',             icon: BarChart3 },
     ],
   },
-  { label: 'Account', items: [{ href: '/employer/dashboard/settings', label: 'Settings', icon: Settings }] },
 ];
 
 const NEXT_STATUSES: Record<string, { label: string; value: string; style: string }[]> = {
@@ -86,7 +85,7 @@ function StageActions({ app, onUpdated }: { app: Application; onUpdated: (id: st
   );
 }
 
-export default function EmployerApplicationsPage() {
+function ApplicationsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, dbUser, isLoading } = useAuth();
@@ -96,16 +95,25 @@ export default function EmployerApplicationsPage() {
     if (!isLoading && !user) router.replace('/login');
   }, [user, isLoading, router]);
 
-  const [apps, setApps] = useState<Application[]>([]);
-  const [total, setTotal] = useState(0);
+  const [apps,    setApps]    = useState<Application[]>([]);
+  const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(true);
   const jobId = searchParams.get('jobId') ?? '';
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     const url = `/api/employer/applications${jobId ? `?jobId=${jobId}` : ''}`;
-    fetch(url).then(r => r.json())
-      .then(d => { setApps(d.applications ?? []); setTotal(d.total ?? 0); })
+    fetch(url)
+      .then(r => {
+        if (!r.ok) throw new Error(`API error ${r.status}`);
+        return r.json();
+      })
+      .then((d: { applications?: Application[]; total?: number }) => {
+        setApps(d.applications ?? []);
+        setTotal(d.total ?? 0);
+      })
+      .catch((err: Error) => console.error('[employer/applications]', err))
       .finally(() => setLoading(false));
   }, [user, jobId]);
 
@@ -186,4 +194,14 @@ export default function EmployerApplicationsPage() {
       </div>
     </div>
   );
+}
+
+const SPINNER = (
+  <div className="flex h-screen items-center justify-center bg-gray-50">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
+
+export default function EmployerApplicationsPage() {
+  return <Suspense fallback={SPINNER}><ApplicationsContent /></Suspense>;
 }

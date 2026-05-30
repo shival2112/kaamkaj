@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Search, Bell, Globe, Layers, Users, Calendar,
   CheckCircle2, PlusCircle, ClipboardList, BarChart3,
-  Settings, LayoutDashboard,
+  LayoutDashboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +28,6 @@ const EMPLOYER_NAV: SidebarNavSection[] = [
       { href: '/employer/dashboard/analytics',    label: 'Analytics',             icon: BarChart3 },
     ],
   },
-  { label: 'Account', items: [{ href: '/employer/dashboard/settings', label: 'Settings', icon: Settings }] },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────

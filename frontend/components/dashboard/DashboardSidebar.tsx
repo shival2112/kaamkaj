@@ -1,17 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { ElementType, ReactNode } from 'react';
 import {
-  Briefcase,
   LayoutDashboard,
   ClipboardList,
   Bookmark,
   User,
   FileText,
-  MessageSquare,
-  Settings,
   LogOut,
   Zap,
   MessageCircle,
@@ -35,17 +33,12 @@ const DEFAULT_NAV_SECTIONS: SidebarNavSection[] = [
   {
     label: 'For You',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/applications', label: 'My Applications', icon: ClipboardList, badge: 24 },
-      { href: '/dashboard/saved', label: 'Saved Jobs', icon: Bookmark, badge: 12 },
-      { href: '/dashboard/profile', label: 'My Profile', icon: User },
-      { href: '/dashboard/resume', label: 'Resume', icon: FileText },
-      { href: '/dashboard/messages', label: 'Messages', icon: MessageSquare, badge: 3 },
+      { href: '/dashboard',              label: 'Dashboard',        icon: LayoutDashboard },
+      { href: '/dashboard/applications', label: 'My Applications',  icon: ClipboardList },
+      { href: '/dashboard/saved',        label: 'Saved Jobs',       icon: Bookmark },
+      { href: '/dashboard/profile',      label: 'My Profile',       icon: User },
+      { href: '/dashboard/resume',       label: 'Resume',           icon: FileText },
     ],
-  },
-  {
-    label: 'Account',
-    items: [{ href: '/dashboard/settings', label: 'Settings', icon: Settings }],
   },
 ];
 
@@ -88,12 +81,10 @@ export function DashboardSidebar({
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Briefcase className="h-4 w-4 text-white" />
-        </div>
-        <span className="text-xl font-bold">
-          <span className="text-primary">K</span>
-          <span className="text-foreground"> Kaamkaj</span>
+        <Image src="/logo.svg" alt="KaamKaaj logo" width={32} height={32} priority />
+        <span className="text-xl font-bold tracking-tight">
+          <span className="text-[#007a5a]">Kaam</span>
+          <span className="text-foreground">Kaaj</span>
         </span>
       </div>
 

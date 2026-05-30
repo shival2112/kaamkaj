@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { JobType, JobStatus } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 const PAGE_SIZE = 12;
 
 export async function GET(request: Request) {
