@@ -7,6 +7,7 @@ import { Layers, PlusCircle, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import {
@@ -71,31 +72,52 @@ function StatusBtn({ job, onUpdated }: { job: Listing; onUpdated: (id: string, s
 export default function ListingsPage() {
   const router = useRouter();
   const { user, dbUser, isLoading } = useAuth();
+  const { data: nextSession, status: nextStatus } = useSession();
   const clearUser = useAuthStore((s) => s.clearUser);
 
-  useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [user, isLoading, router]);
+  const sessionReady = !isLoading && nextStatus !== 'loading';
+  const isEmployer =
+    (!!user && (user.user_metadata?.role as string ?? '').toUpperCase() === 'EMPLOYER') ||
+    (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'EMPLOYER');
 
-  const [jobs, setJobs] = useState<Listing[]>([]);
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (!isEmployer) router.replace('/login');
+  }, [sessionReady, isEmployer, router]);
+
+  const [jobs,    setJobs]    = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
-    if (!user) return;
+    if (!isEmployer) return;
+    setLoading(true);
     fetch('/api/employer/jobs').then(r => r.json())
       .then(d => setJobs(d.jobs ?? []))
+      .catch(err => console.error('[listings] fetch error:', err))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isEmployer) load();
+  }, [isEmployer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpdated = (id: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === id ? { ...j, status } : j));
   };
 
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
-  const handleLogout = async () => { await createSupabaseClient().auth.signOut(); clearUser(); router.push('/'); };
+  const displayName =
+    dbUser?.name ??
+    user?.email?.split('@')[0] ??
+    (nextSession?.user as { name?: string; companyName?: string } | undefined)?.companyName ??
+    nextSession?.user?.name ??
+    'Employer';
 
-  if (isLoading || !user) {
+  const handleLogout = async () => {
+    await createSupabaseClient().auth.signOut();
+    clearUser();
+    router.push('/');
+  };
+
+  if (!sessionReady || (!isEmployer && sessionReady)) {
     return <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>;

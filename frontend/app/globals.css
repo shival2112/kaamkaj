@@ -57,3 +57,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* ── Degree feature: CSS-only marquee ─────────────────────────────────────── */
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  white-space: nowrap;
+  animation: marquee-scroll 35s linear infinite;
+}

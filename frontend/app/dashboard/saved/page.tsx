@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Bookmark, MapPin, IndianRupee, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { SaveButton } from '@/components/jobs/SaveButton';
@@ -34,27 +35,34 @@ function fmtSalary(min?: number | null, max?: number | null) {
 export default function SavedJobsPage() {
   const router = useRouter();
   const { user, dbUser, isLoading } = useAuth();
+  const { data: nextSession, status: nextStatus } = useSession();
   const clearUser = useAuthStore((s) => s.clearUser);
 
+  const sessionReady = !isLoading && nextStatus !== 'loading';
+  const isCandidate =
+    (!!user && (user.user_metadata?.role as string ?? 'CANDIDATE').toUpperCase() === 'CANDIDATE') ||
+    (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'CANDIDATE') ||
+    (!!user && !(user.user_metadata?.role));
+
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [user, isLoading, router]);
+    if (!sessionReady) return;
+    if (!isCandidate) router.replace('/login');
+  }, [sessionReady, isCandidate, router]);
 
   const [saved,   setSaved]   = useState<SavedEntry[]>([]);
   const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
-    if (!user) return;
+  useEffect(() => {
+    if (!isCandidate) return;
     fetch('/api/candidate/saved?limit=50')
       .then(r => r.json())
-      .then(d => { setSaved(d.saved ?? []); setTotal(d.total ?? 0); })
+      .then(d => { setSaved((d as { saved?: SavedEntry[] }).saved ?? []); setTotal((d as { total?: number }).total ?? 0); })
+      .catch(err => console.error('[saved] fetch error:', err))
       .finally(() => setLoading(false));
-  };
+  }, [isCandidate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { load(); }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
+  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
   const role = dbUser?.role ?? 'CANDIDATE';
   const handleLogout = async () => {
     await createSupabaseClient().auth.signOut();
@@ -62,7 +70,12 @@ export default function SavedJobsPage() {
     router.push('/');
   };
 
-  if (isLoading || !user) {
+  if (!sessionReady) {
+    return <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>;
+  }
+  if (!isCandidate) {
     return <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>;

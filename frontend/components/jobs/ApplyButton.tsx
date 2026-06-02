@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, CheckCircle2, Send } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 
 interface ApplyButtonProps {
   jobId: string;
@@ -12,16 +13,32 @@ interface ApplyButtonProps {
 
 export function ApplyButton({ jobId, alreadyApplied: initial }: ApplyButtonProps) {
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
+
+  // Supabase session (email/password candidates)
+  const user     = useAuthStore((s) => s.user);
   const userRole = ((user?.user_metadata?.role as string) ?? '').toUpperCase();
 
-  const [applied, setApplied]   = useState(initial);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  // NextAuth session (phone OTP candidates)
+  const { data: nextSession } = useSession();
+  const nextRole = (nextSession?.user?.role as string ?? '').toUpperCase();
 
+  const [applied, setApplied] = useState(initial);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  // Employers and admins see nothing
   if (userRole === 'EMPLOYER' || userRole === 'ADMIN') return null;
+  if (nextRole === 'EMPLOYER') return null;
 
-  if (!user) {
+  // Neither Supabase nor NextAuth has a candidate session → prompt login
+  const isLoggedInCandidate =
+    (!!user && userRole === 'CANDIDATE') ||
+    (!!nextSession?.user && nextRole === 'CANDIDATE') ||
+    // Default: any logged-in user who isn't employer/admin is treated as candidate
+    (!!user && userRole === '') ||
+    (!!nextSession?.user && nextRole === '');
+
+  if (!isLoggedInCandidate) {
     return (
       <button
         onClick={() => router.push(`/login?redirect=/jobs/${jobId}`)}
@@ -52,7 +69,11 @@ export function ApplyButton({ jobId, alreadyApplied: initial }: ApplyButtonProps
       } else if (res.status === 409) {
         setApplied(true); // already applied
       } else {
-        const body = await res.json();
+        const body = await res.json() as { error?: string; code?: string };
+        if (body.code === 'PROFILE_INCOMPLETE') {
+          router.push('/dashboard/onboarding');
+          return;
+        }
         setError(body.error ?? 'Something went wrong. Try again.');
       }
     } catch {

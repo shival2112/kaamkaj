@@ -53,16 +53,19 @@ enum ApplicationStatus {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  phone        String?
-  passwordHash String?  @map("password_hash")
-  role         Role     @default(CANDIDATE)
-  name         String
-  avatar       String?
-  isVerified   Boolean  @default(false) @map("is_verified")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  phone               String?
+  passwordHash        String?   @map("password_hash")
+  role                Role      @default(CANDIDATE)
+  name                String
+  avatar              String?
+  isVerified          Boolean   @default(false) @map("is_verified")
+  emailVerified       Boolean   @default(false) @map("email_verified")
+  verificationToken   String?   @unique @map("verification_token")
+  verificationExpiry  DateTime? @map("verification_expiry")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Relations
   company      Company?
@@ -169,4 +172,45 @@ model Resume {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("resumes")
+}
+
+// ─── Phone-based Auth Models (NextAuth / OTP flow) ────────────────────────────
+// Separate from Supabase User — used by employer + candidate phone login.
+
+enum PhoneRole {
+  CANDIDATE
+  EMPLOYER
+}
+
+model PhoneUser {
+  id        String          @id @default(cuid())
+  name      String
+  phone     String          @unique
+  role      PhoneRole       @default(CANDIDATE)
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  candidate PhoneCandidate?
+  employer  PhoneEmployer?
+
+  @@map("phone_users")
+}
+
+model PhoneCandidate {
+  id     String    @id @default(cuid())
+  userId String    @unique @map("user_id")
+  user   PhoneUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("phone_candidates")
+}
+
+model PhoneEmployer {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  user        PhoneUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String    @map("company_name")
+  industry    String    @default("Technology")
+  location    String    @default("India")
+  about       String    @default("")
+
+  @@map("phone_employers")
 }

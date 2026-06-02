@@ -115,6 +115,78 @@
 
 ---
 
+---
+
+## Phase 10: Job Prep / AI Mock Interview ✓
+- [x] Data file `frontend/data/jobPrepData.ts` — 22 entries (Google x3, Zomato x3, Cisco x2 + 14 landing-page stubs)
+- [x] `/job-prep` landing page — hero with carousel, company/role dropdowns, category pill tabs, 3 horizontally-scrollable sections
+- [x] `/job-prep/[slug]` detail page — gradient header, round cards + questions, Practice buttons, sticky Share sidebar
+- [x] ShareSidebar client component — WhatsApp/Facebook/LinkedIn/X share links + copy-link button
+- [x] All 22 slugs pre-rendered as static HTML (SSG). Build ✓
+
+---
+
+---
+
+## Phase 11: Contests Feature ✓
+- [x] Data file `frontend/data/contestsData.ts` — 3 contests (2 live, 1 closed) with full typed schema
+- [x] `/contests` listing page — 3-column layout: sticky filter sidebar, contest cards with countdown timers, About sidebar
+- [x] `/contests/[slug]` detail page — gradient hero banner, 6-tab content section (Description, Eligibility, Rounds, Rewards, About Organizer, FAQ accordion)
+- [x] Register Now button — opens Login Modal for unauthenticated users, shows "Registered ✓" on verify
+- [x] Login Modal — phone number → Send OTP → 6-digit OTP → Verify & Register (mock flow)
+- [x] Countdown timer component (HH:MM:SS, client-only to avoid hydration mismatch)
+- [x] All 3 slugs pre-rendered as static HTML (SSG). Build ✓
+
+---
+
+## Phase 12: Degree Feature ✓
+- [x] Data file `frontend/data/degreeData.ts` — 3 universities with full typed schema (courses, highlights, updates, placements, reviews)
+- [x] `/degree` landing page — dark-purple hero, stats row, sticky filter bar (All/Masters/Bachelors), 3-col university cards grid
+- [x] University cards — gradient banner, initials logo, NAAC/UGC/AICTE/NIRF badges, "Apna Advantage Assured" badge, Brochure + Apply Now CTA
+- [x] `/degree/[slug]` detail page — full-width gradient hero, CSS-only marquee strip ("Apna Advantage Assured"), overlapping header card
+- [x] Sticky tab nav (College Info | Courses | Fees | Admission | Placements | Reviews) with scroll-spy active-tab detection
+- [x] All 6 tab sections rendered: About, stat cards, accreditations, updates carousel, highlights table, course cards, fees table, admission steps + eligibility, placements stats + recruiters, 3 review cards
+- [x] Brochure modal — "not available in this demo version"
+- [x] Login modal (reused from Contests) — phone → OTP → Verify; on success shows toast "Your interest has been noted"
+- [x] 3 slugs statically pre-rendered (SSG). 0 TS errors. Build ✓
+- [x] `globals.css` updated with `@keyframes marquee-scroll` + `.marquee-track` for pure-CSS infinite marquee
+
+---
+
+## Phase 13: Schedule Meeting CRUD ✓
+- [x] `ScheduleInterviewModal` component — create/edit modal with validation (candidate, job, round, date, time, mode, interviewer, link)
+- [x] `deleteInterview` action added to `employerStore`
+- [x] `/employer/interviews` — Schedule button + Edit/Delete per row + status filter tabs
+- [x] `/employer/candidates/[id]` — "Schedule Interview" button opens modal pre-filled with candidate
+- [x] `/dashboard/admin/meetings` — Admin CRUD page: schedule/edit/cancel/delete meetings, search + filter tabs
+- [x] `/dashboard/interviews` — Candidate view: upcoming interview cards + past interviews table
+- [x] `ADMIN_NAV` updated in all 4 admin pages to include Meetings link
+- [x] Candidate `DashboardSidebar` DEFAULT_NAV updated with "My Interviews" link
+
+---
+
+---
+
+## Phase 15: Candidate Onboarding Profile ✓
+- [x] `POST/GET /api/candidate/onboarding` — saves name, phone, headline, bio, location, skills, experienceLevel into Resume.parsedData; profileCompleted flag
+- [x] `/dashboard/onboarding` — profile setup form (pre-fill on revisit, auto-skip if already complete)
+- [x] `POST /api/jobs/[id]/apply` — blocks apply with PROFILE_INCOMPLETE (403) if profile not done
+- [x] `ApplyButton` — redirects to `/dashboard/onboarding` on PROFILE_INCOMPLETE code
+- [x] `SignupForm` + `AuthModal` — candidates redirected to `/dashboard/onboarding` instead of `/dashboard` after registration
+
+---
+
+## Phase 14: Employer Portal — Extended Features (In Progress)
+- [x] Feature 1: Shortlisted Candidates page `/employer/shortlisted` — SHORTLISTED + HIRED view, Hire/Reject actions, API status filter
+- [x] Feature 2: Hiring Pipeline (Kanban) `/employer/pipeline` — HTML5 DnD, 5 columns, optimistic update + rollback
+- [x] Feature 3: CSV Export on Applications page — client-side Blob download, respects active jobId filter
+- [x] Feature 4: Job Performance per Listing — totalApplicants + applicantsThisWeek on job cards (green "+N this week" badge)
+- [x] Feature 5: Candidate Profile Drawer — click candidate name → slide-in panel with skills, resume link, all applications to your jobs
+- [x] Feature 6: Notification Bell — live dropdown, unread badge, mark-read via localStorage, timeAgo labels
+- [x] Feature 7: Inline Job status toggle — clickable Active/Closed badge on job title in Applications page, optimistic update + rollback
+
+---
+
 ## Blockers
 *(None currently)*
 

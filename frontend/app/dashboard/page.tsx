@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Bell, Globe, Send, Calendar, Eye, Bookmark } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { KPICard } from '@/components/ui/KPICard';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
@@ -50,45 +51,59 @@ function tileColor(name: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const router   = useRouter();
-  const { user, dbUser, isLoading } = useAuth();
+  const router  = useRouter();
+  const { user, dbUser, isLoading } = useAuth();        // Supabase session
+  const { data: nextSession, status: nextStatus } = useSession(); // NextAuth session
   const clearUser = useAuthStore((s) => s.clearUser);
 
-  const userRole = ((user?.user_metadata?.role as string) ?? 'CANDIDATE').toUpperCase();
+  // Both auth mechanisms must finish loading before we make a redirect decision.
+  const sessionReady = !isLoading && nextStatus !== 'loading';
 
+  const supabaseRole  = (user?.user_metadata?.role as string ?? '').toUpperCase();
+  const nextAuthRole  = (nextSession?.user?.role  as string ?? '').toUpperCase();
+
+  // A candidate is valid if authenticated via EITHER mechanism with the CANDIDATE role.
+  const isCandidate =
+    (!!user && supabaseRole === 'CANDIDATE') ||
+    (!!nextSession?.user && nextAuthRole === 'CANDIDATE');
+
+  // Redirect once sessions have settled and the user is not a candidate.
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) router.replace('/login');
-      else if (userRole === 'EMPLOYER') router.replace('/employer/dashboard');
-      else if (userRole === 'ADMIN')    router.replace('/dashboard/admin');
+    if (!sessionReady) return;
+    if (!isCandidate) {
+      // Could be employer / admin — send them to the right place
+      const role = supabaseRole || nextAuthRole;
+      if (role === 'EMPLOYER') { router.replace('/employer/dashboard'); return; }
+      if (role === 'ADMIN')    { router.replace('/dashboard/admin');    return; }
+      router.replace('/login');
     }
-  }, [user, isLoading, userRole, router]);
+  }, [sessionReady, isCandidate, supabaseRole, nextAuthRole, router]);
 
-  // ── Real data ────────────────────────────────────────────────────────────────
+  // ── Data ──────────────────────────────────────────────────────────────────
   const [stats,       setStats]       = useState<Stats | null>(null);
   const [recentApps,  setRecentApps]  = useState<RecentApp[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || userRole !== 'CANDIDATE') return;
+    if (!isCandidate) return;
     setDataLoading(true);
     Promise.all([
       fetch('/api/candidate/stats').then(r => r.json()),
       fetch('/api/candidate/applications?limit=4').then(r => r.json()),
     ]).then(([s, a]) => {
-      setStats(s);
-      setRecentApps(a.applications ?? []);
-    }).finally(() => setDataLoading(false));
-  }, [user, userRole]);
+      setStats(s as Stats);
+      setRecentApps((a as { applications?: RecentApp[] }).applications ?? []);
+    }).catch(err => console.error('[dashboard] data fetch error:', err))
+      .finally(() => setDataLoading(false));
+  }, [isCandidate]);
 
-  // ── Derived display values ───────────────────────────────────────────────────
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
-  const role        = dbUser?.role ?? 'CANDIDATE';
+  // ── Display values — Supabase dbUser first, NextAuth session as fallback ──
+  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
+  const role        = dbUser?.role ?? (isCandidate ? 'CANDIDATE' : 'CANDIDATE');
   const greeting    = useMemo(getGreeting, []);
 
-  // Profile completion: name(25) + email(25) + phone(25) + avatar(25)
   const profilePct = 25
-    + (dbUser?.name  ? 25 : 0)
+    + (dbUser?.name   ? 25 : 0)
     + (dbUser?.avatar ? 25 : 0)
     + ((dbUser as { phone?: string } | null)?.phone ? 25 : 0);
 
@@ -101,7 +116,17 @@ export default function DashboardPage() {
     router.push('/');
   };
 
-  if (isLoading || !user) {
+  // Show spinner while either auth mechanism is still loading.
+  if (!sessionReady) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Sessions have settled but user is not a candidate — useEffect will redirect.
+  if (!isCandidate) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -126,9 +151,9 @@ export default function DashboardPage() {
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </button>
-            <button aria-label="Language" className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-foreground">
+            <Link href="/" aria-label="Visit website" title="Go to KaamKaaj" className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100 hover:text-primary">
               <Globe className="h-5 w-5" />
-            </button>
+            </Link>
             <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
               {initials}
             </div>

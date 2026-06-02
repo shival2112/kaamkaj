@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { resolveEmployerUserId } from '@/lib/employer-auth';
 import { ApplicationStatus } from '@prisma/client';
+import { sendEmail } from '@/lib/mailer';
+import { applicationStatusUpdateHtml } from '@/lib/emailTemplates/applicationStatusUpdate';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,17 +12,19 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userId = await resolveEmployerUserId();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const company = await prisma.company.findUnique({ where: { ownerId: user.id } });
+    const company = await prisma.company.findUnique({ where: { ownerId: userId } });
     if (!company) return NextResponse.json({ error: 'No company found' }, { status: 404 });
 
     // Verify this application belongs to one of this employer's jobs
     const application = await prisma.application.findUnique({
       where: { id: params.id },
-      include: { job: { select: { companyId: true } } },
+      include: {
+        job:       { select: { companyId: true, title: true } },
+        candidate: { select: { email: true, name: true } },
+      },
     });
     if (!application || application.job.companyId !== company.id) {
       return NextResponse.json({ error: 'Application not found' }, { status: 404 });
@@ -36,6 +40,22 @@ export async function PATCH(
       where: { id: params.id },
       data: { status: body.status as ApplicationStatus },
     });
+    console.log('[PATCH /api/employer/applications/:id] status →', body.status, 'for application', params.id);
+
+    // Notify candidate on meaningful status changes
+    const notifyStatuses: string[] = ['SHORTLISTED', 'REJECTED'];
+    if (notifyStatuses.includes(body.status) && application.candidate?.email) {
+      sendEmail({
+        to: application.candidate.email,
+        subject: `Update on your application — ${application.job.title}`,
+        html: applicationStatusUpdateHtml(
+          application.candidate.name,
+          application.job.title,
+          company.name,
+          body.status,
+        ),
+      }).catch(err => console.error('[application status update] email failed:', err));
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

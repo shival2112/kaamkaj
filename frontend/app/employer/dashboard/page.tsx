@@ -1,256 +1,162 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Search, Bell, Globe, Layers, Users, Calendar,
-  CheckCircle2, PlusCircle, ClipboardList, BarChart3,
-  LayoutDashboard,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Briefcase, Users, CheckCircle, ArrowRight } from 'lucide-react';
+import { EmployerShell } from '@/components/employer/EmployerShell';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuthStore } from '@/store/authStore';
-import { createSupabaseClient } from '@/lib/supabase';
-import { KPICard } from '@/components/ui/KPICard';
-import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
-import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
+import { useSession } from 'next-auth/react';
 
-// ─── Nav ─────────────────────────────────────────────────────────────────────
+// Normalise DB enum values to the lowercase strings the JSX expects
+function normaliseType(t: string) {
+  const map: Record<string, string> = {
+    FULL_TIME: 'Full-time', PART_TIME: 'Part-time',
+    REMOTE: 'Remote', CONTRACT: 'Contract', INTERNSHIP: 'Internship',
+  };
+  return map[t] ?? t;
+}
+function normaliseStatus(s: string): 'active' | 'paused' | 'closed' {
+  if (s === 'ACTIVE') return 'active';
+  if (s === 'DRAFT')  return 'paused';
+  return 'closed';
+}
 
-const EMPLOYER_NAV: SidebarNavSection[] = [
-  {
-    label: 'Manage',
-    items: [
-      { href: '/employer/dashboard',             label: 'Overview',              icon: LayoutDashboard },
-      { href: '/employer/dashboard/listings',     label: 'My Listings',           icon: Layers },
-      { href: '/employer/dashboard/applications', label: 'Applications Received', icon: ClipboardList },
-      { href: '/employer/dashboard/analytics',    label: 'Analytics',             icon: BarChart3 },
-    ],
-  },
-];
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Stats { activeListings: number; totalApplicants: number; shortlisted: number; filled: number }
-type JobStatus = 'ACTIVE' | 'DRAFT' | 'CLOSED' | 'EXPIRED';
-interface Listing {
-  id: string; title: string; location: string; status: JobStatus; createdAt: string;
+interface DbJob {
+  id: string; title: string; location: string; type: string; status: string;
   _count: { applications: number };
 }
-interface RecentApp {
-  id: string; status: string; appliedAt: string;
-  job: { id: string; title: string };
-  candidate: { name: string; email: string };
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const STATUS_LABEL: Record<JobStatus, { label: string; style: string }> = {
-  ACTIVE:  { label: 'Active',  style: 'bg-green-50 text-green-700' },
-  DRAFT:   { label: 'Paused',  style: 'bg-yellow-50 text-yellow-700' },
-  CLOSED:  { label: 'Closed',  style: 'bg-gray-100 text-gray-500' },
-  EXPIRED: { label: 'Expired', style: 'bg-gray-100 text-gray-500' },
-};
-
-const TILE_COLORS = ['bg-blue-500','bg-violet-500','bg-green-600','bg-orange-500','bg-pink-500','bg-indigo-500','bg-teal-500'];
-function tileColor(name: string) {
-  let h = 0; for (const c of name) h = c.charCodeAt(0) + h * 31;
-  return TILE_COLORS[Math.abs(h) % TILE_COLORS.length];
-}
-
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 18) return 'Good afternoon';
-  return 'Good evening';
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EmployerDashboardPage() {
-  const router = useRouter();
-  const { user, dbUser, isLoading } = useAuth();
-  const clearUser = useAuthStore((s) => s.clearUser);
+  const { user } = useAuth();               // Supabase employer
+  const { data: nextSession } = useSession(); // NextAuth phone employer
 
-  const userRole = ((user?.user_metadata?.role as string) ?? 'CANDIDATE').toUpperCase();
+  // An employer is authenticated via EITHER auth mechanism
+  const isEmployer =
+    (!!user && (user.user_metadata?.role as string ?? '').toUpperCase() === 'EMPLOYER') ||
+    (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'EMPLOYER');
 
-  useEffect(() => {
-    if (!isLoading) {
-      if (!user) router.replace('/login');
-      else if (userRole !== 'EMPLOYER') router.replace('/dashboard');
-    }
-  }, [user, isLoading, userRole, router]);
+  const [jobs,            setJobs]           = useState<DbJob[]>([]);
+  const [totalApplicants, setTotalApplicants] = useState(0);
+  const [newToday,        setNewToday]        = useState(0);
+  const [dataLoading,     setDataLoading]     = useState(true);
 
-  // ── Real data ────────────────────────────────────────────────────────────────
-  const [stats,   setStats]   = useState<Stats | null>(null);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [recentApps, setRecentApps] = useState<RecentApp[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const upcomingIvs: never[] = []; // No interview model in DB yet
 
   useEffect(() => {
-    if (!user || userRole !== 'EMPLOYER') return;
-    setDataLoading(true);
+    if (!isEmployer) return;
+
     Promise.all([
-      fetch('/api/employer/stats').then(r => r.json()),
       fetch('/api/employer/jobs').then(r => r.json()),
-      fetch('/api/employer/applications?limit=4').then(r => r.json()),
-    ]).then(([s, j, a]) => {
-      setStats(s);
-      setListings((j.jobs ?? []).slice(0, 4));
-      setRecentApps(a.applications ?? []);
-    }).finally(() => setDataLoading(false));
-  }, [user, userRole]);
+      fetch('/api/employer/stats').then(r => r.json()),
+    ]).then(([jobData, statsData]) => {
+      console.log('[employer/dashboard] fetched jobs:', jobData.total, 'stats:', statsData);
+      const normalised = (jobData.jobs ?? []).map((j: DbJob) => ({
+        ...j,
+        type:   normaliseType(j.type),
+        status: normaliseStatus(j.status),
+      }));
+      setJobs(normalised);
+      setTotalApplicants(statsData.totalApplicants ?? 0);
+      setNewToday(statsData.newToday ?? 0);
+    }).catch(err => console.error('[employer/dashboard] fetch error:', err))
+      .finally(() => setDataLoading(false));
+  }, [isEmployer]);
 
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
-  const greeting = useMemo(getGreeting, []);
+  const activeJobs = jobs.filter((j) => j.status === 'active').length;
 
-  const initials = displayName.split(' ').map((w: string) => w[0] ?? '').filter(Boolean).slice(0, 2).join('').toUpperCase() || 'U';
-
-  const handleLogout = async () => {
-    await createSupabaseClient().auth.signOut();
-    clearUser(); router.push('/');
-  };
-
-  if (isLoading || !user) {
-    return <div className="flex h-screen items-center justify-center bg-gray-50">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-    </div>;
-  }
+  const stats = [
+    { label: 'Total Jobs Posted',      value: jobs.length,     icon: Briefcase,   bg: 'bg-purple-50', fg: 'text-purple-600' },
+    { label: 'Total Applications',     value: totalApplicants, icon: Users,        bg: 'bg-blue-50',   fg: 'text-blue-600' },
+    { label: 'Active Jobs',            value: activeJobs,      icon: CheckCircle,  bg: 'bg-green-50',  fg: 'text-green-600' },
+    { label: 'New Applications Today', value: newToday,        icon: Users,        bg: 'bg-orange-50', fg: 'text-orange-600' },
+  ];
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <DashboardSidebar displayName={displayName} role="Employer" onLogout={handleLogout}
-        primaryButtonLabel="Post a Job" primaryButtonIcon={PlusCircle}
-        onPrimaryButton={() => router.push('/employer/dashboard/post-job')}
-        navSections={EMPLOYER_NAV} />
+    <EmployerShell>
+      <div className="p-6 lg:p-8">
+        <h1 className="text-2xl font-extrabold text-gray-900">Overview</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Welcome back! Here&apos;s your hiring at a glance.
+        </p>
 
-      <div className="flex flex-1 flex-col overflow-hidden bg-gray-50">
-        {/* Top bar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
-          <div className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input type="text" placeholder="Search candidates, listings..."
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
-          </div>
-          <div className="flex items-center gap-2">
-            <button aria-label="Notifications" className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-            </button>
-            <button aria-label="Language" className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-gray-100">
-              <Globe className="h-5 w-5" />
-            </button>
-            <div className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">{initials}</div>
-          </div>
-        </header>
-
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName} 👋</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {stats
-              ? `${stats.activeListings} active listing${stats.activeListings !== 1 ? 's' : ''} · ${stats.totalApplicants} total applicant${stats.totalApplicants !== 1 ? 's' : ''}`
-              : "Here's what's happening with your listings today."}
-          </p>
-
-          {/* KPI cards */}
-          <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
-            <KPICard icon={<Layers className="h-5 w-5" />} label="Active Listings"
-              value={dataLoading ? '—' : stats?.activeListings ?? 0} change={dataLoading ? '' : 'total'} />
-            <KPICard icon={<Users className="h-5 w-5" />} label="Total Applicants"
-              value={dataLoading ? '—' : stats?.totalApplicants ?? 0} change={dataLoading ? '' : 'total'} />
-            <KPICard icon={<Calendar className="h-5 w-5" />} label="Shortlisted"
-              value={dataLoading ? '—' : stats?.shortlisted ?? 0} change={dataLoading ? '' : 'total'} />
-            <KPICard icon={<CheckCircle2 className="h-5 w-5" />} label="Jobs Filled"
-              value={dataLoading ? '—' : stats?.filled ?? 0} change={dataLoading ? '' : 'total'} />
-          </div>
-
-          {/* My Job Listings */}
-          <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h2 className="font-semibold text-foreground">My Job Listings</h2>
-              <Link href="/employer/dashboard/listings" className="text-sm font-medium text-primary hover:underline">View all</Link>
+        {/* Stat cards */}
+        <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+          {stats.map(({ label, value, icon: Icon, bg, fg }) => (
+            <div key={label} className="rounded-xl bg-white p-5 shadow-sm">
+              <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${bg} ${fg}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-2xl font-extrabold text-gray-900">{value}</p>
+              <p className="mt-0.5 text-xs text-gray-500">{label}</p>
             </div>
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['JOB TITLE', 'APPLICATIONS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
-                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
-              ))}
-            </div>
+          ))}
+        </div>
 
+        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Recent jobs */}
+          <div className="lg:col-span-2 rounded-xl bg-white p-6 shadow-sm">
+            <h2 className="mb-4 font-semibold text-gray-900">Recent Job Postings</h2>
             {dataLoading ? (
               <div className="flex items-center justify-center py-10">
-                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-[#6B46C1] border-t-transparent" />
               </div>
-            ) : listings.length === 0 ? (
-              <div className="py-10 text-center">
-                <p className="text-sm text-muted-foreground">No jobs posted yet.</p>
-                <Link href="/employer/dashboard/post-job" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                  <PlusCircle className="h-4 w-4" /> Post your first job
+            ) : jobs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Briefcase className="h-10 w-10 text-gray-200" />
+                <p className="mt-3 text-sm font-semibold text-gray-600">No jobs posted yet</p>
+                <p className="mt-1 text-xs text-gray-400">Click &quot;+ Post a Job&quot; to get started.</p>
+                <Link href="/employer/jobs/new"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#6B46C1] px-5 py-2.5 text-sm font-bold text-white hover:bg-purple-700">
+                  + Post a Job
                 </Link>
               </div>
-            ) : listings.map(job => {
-              const info = STATUS_LABEL[job.status] ?? STATUS_LABEL.CLOSED;
-              return (
-                <div key={job.id}
-                  className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{job.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{job.location}</p>
-                  </div>
-                  <p className="text-sm font-medium text-foreground">{job._count.applications}</p>
-                  <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', info.style)}>{info.label}</span>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(job.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </p>
-                  <Link href={`/employer/dashboard/applications?jobId=${job.id}`}
-                    className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
-                    Applicants
-                  </Link>
-                </div>
-              );
-            })}
+            ) : (
+              <ul className="space-y-3">
+                {jobs.slice(0, 4).map((j) => (
+                  <li key={j.id} className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-semibold text-gray-900">{j.title}</p>
+                      <p className="text-xs text-gray-500">{j.location} · {j.type}</p>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold capitalize ${
+                      j.status === 'active' ? 'bg-green-100 text-green-700' :
+                      j.status === 'paused' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
+                    }`}>{j.status}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          {/* Recent Applicants */}
-          <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h2 className="font-semibold text-foreground">Recent Applicants</h2>
-              <Link href="/employer/dashboard/applications" className="text-sm font-medium text-primary hover:underline">View all</Link>
-            </div>
-            <div className="grid grid-cols-[2fr_2fr_1fr_1fr] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['CANDIDATE', 'JOB APPLIED FOR', 'STAGE', 'APPLIED'] as const).map(col => (
-                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
-              ))}
+          {/* Quick links + upcoming */}
+          <div className="space-y-4">
+            <div className="rounded-xl bg-white p-5 shadow-sm">
+              <h2 className="mb-3 font-semibold text-gray-900">Quick Actions</h2>
+              <div className="space-y-2">
+                {[
+                  { label: 'Post a Job',         href: '/employer/jobs/new',  cls: 'bg-[#6B46C1] text-white hover:bg-purple-700' },
+                  { label: 'View Applications',  href: '/employer/jobs',       cls: 'border border-purple-200 text-purple-700 hover:bg-purple-50' },
+                  { label: 'Schedule Interview', href: '/employer/interviews', cls: 'border border-gray-200 text-gray-700 hover:bg-gray-50' },
+                ].map(({ label, href, cls }) => (
+                  <Link key={label} href={href}
+                    className={`flex items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${cls}`}>
+                    {label}<ArrowRight className="h-4 w-4" />
+                  </Link>
+                ))}
+              </div>
             </div>
 
-            {dataLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <div className="h-5 w-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              </div>
-            ) : recentApps.length === 0 ? (
-              <div className="py-10 text-center">
-                <p className="text-sm text-muted-foreground">No applications yet. Post jobs to start receiving applicants.</p>
-              </div>
-            ) : recentApps.map(app => (
-              <div key={app.id}
-                className="grid grid-cols-[2fr_2fr_1fr_1fr] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(app.candidate.name)}`}>
-                    {app.candidate.name[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <p className="truncate text-sm font-semibold text-foreground">{app.candidate.name}</p>
-                </div>
-                <p className="truncate text-sm text-muted-foreground">{app.job.title}</p>
-                <StatusChip status={mapDbStatus(app.status)} />
-                <p className="text-sm text-muted-foreground">
-                  {new Date(app.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                </p>
-              </div>
-            ))}
+            <div className="rounded-xl bg-white p-5 shadow-sm">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Upcoming Interviews
+              </p>
+              {upcomingIvs.length === 0 ? (
+                <p className="text-xs text-gray-400">No interviews scheduled yet.</p>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </EmployerShell>
   );
 }

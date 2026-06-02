@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { Role } from '@prisma/client';
 
 export async function POST(request: Request) {
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
         role: true,
         avatar: true,
       },
+    });
+
+    // Auto-confirm the email so the user can log in immediately without
+    // clicking a confirmation link (required for demo / dev environments
+    // where Supabase email confirmation is enabled).
+    await supabaseAdmin.auth.admin.updateUserById(id, {
+      email_confirm: true,
     });
 
     return NextResponse.json(user);

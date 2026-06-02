@@ -9,7 +9,6 @@ import {
   ClipboardList,
   Bookmark,
   User,
-  FileText,
   LogOut,
   Zap,
   MessageCircle,
@@ -33,11 +32,10 @@ const DEFAULT_NAV_SECTIONS: SidebarNavSection[] = [
   {
     label: 'For You',
     items: [
-      { href: '/dashboard',              label: 'Dashboard',        icon: LayoutDashboard },
-      { href: '/dashboard/applications', label: 'My Applications',  icon: ClipboardList },
-      { href: '/dashboard/saved',        label: 'Saved Jobs',       icon: Bookmark },
-      { href: '/dashboard/profile',      label: 'My Profile',       icon: User },
-      { href: '/dashboard/resume',       label: 'Resume',           icon: FileText },
+      { href: '/dashboard',              label: 'Dashboard',       icon: LayoutDashboard },
+      { href: '/dashboard/applications', label: 'My Applications', icon: ClipboardList },
+      { href: '/dashboard/saved',        label: 'Saved Jobs',      icon: Bookmark },
+      { href: '/dashboard/profile',      label: 'My Profile',      icon: User },
     ],
   },
 ];

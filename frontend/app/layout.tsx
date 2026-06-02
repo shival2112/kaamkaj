@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ConditionalNavbar } from '@/components/layout/ConditionalNavbar';
+import { AppAuthProvider } from '@/context/AppAuthContext';
+import { NextAuthProvider } from '@/components/auth/NextAuthProvider';
+import { AuthModal } from '@/components/auth/AuthModal';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -17,14 +20,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ConditionalNavbar />
-        {children}
+        <NextAuthProvider>
+          <AppAuthProvider>
+            <ConditionalNavbar />
+            <AuthModal />
+            {children}
+          </AppAuthProvider>
+        </NextAuthProvider>
       </body>
     </html>
   );

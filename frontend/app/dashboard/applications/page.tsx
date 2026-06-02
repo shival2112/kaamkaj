@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ClipboardList, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
@@ -26,26 +27,34 @@ function tileColor(name: string) {
 export default function ApplicationsPage() {
   const router = useRouter();
   const { user, dbUser, isLoading } = useAuth();
+  const { data: nextSession, status: nextStatus } = useSession();
   const clearUser = useAuthStore((s) => s.clearUser);
 
+  const sessionReady = !isLoading && nextStatus !== 'loading';
+  const isCandidate =
+    (!!user && (user.user_metadata?.role as string ?? 'CANDIDATE').toUpperCase() === 'CANDIDATE') ||
+    (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'CANDIDATE') ||
+    (!!user && !(user.user_metadata?.role));
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [user, isLoading, router]);
+    if (!sessionReady) return;
+    if (!isCandidate) router.replace('/login');
+  }, [sessionReady, isCandidate, router]);
 
   const [applications, setApplications] = useState<Application[]>([]);
   const [total,        setTotal]        = useState(0);
   const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!isCandidate) return;
     fetch('/api/candidate/applications?limit=50')
       .then(r => r.json())
-      .then(data => { setApplications(data.applications ?? []); setTotal(data.total ?? 0); })
+      .then(data => { setApplications((data as { applications?: Application[] }).applications ?? []); setTotal((data as { total?: number }).total ?? 0); })
+      .catch(err => console.error('[applications] fetch error:', err))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [isCandidate]);
 
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
+  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
   const role = dbUser?.role ?? 'CANDIDATE';
 
   const handleLogout = async () => {
@@ -55,7 +64,13 @@ export default function ApplicationsPage() {
     router.push('/');
   };
 
-  if (isLoading || !user) {
+  if (!sessionReady) {
+    return <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>;
+  }
+
+  if (!isCandidate) {
     return <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>;
@@ -80,7 +95,6 @@ export default function ApplicationsPage() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            {/* Column headers */}
             <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
               {(['JOB', 'TYPE', 'STAGE', 'APPLIED', 'ACTIONS'] as const).map(col => (
                 <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>

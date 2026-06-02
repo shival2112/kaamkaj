@@ -6,6 +6,7 @@ import { ClipboardList, PlusCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
@@ -89,11 +90,18 @@ function ApplicationsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, dbUser, isLoading } = useAuth();
+  const { data: nextSession, status: nextStatus } = useSession();
   const clearUser = useAuthStore((s) => s.clearUser);
 
+  const sessionReady = !isLoading && nextStatus !== 'loading';
+  const isEmployer =
+    (!!user && (user.user_metadata?.role as string ?? '').toUpperCase() === 'EMPLOYER') ||
+    (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'EMPLOYER');
+
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [user, isLoading, router]);
+    if (!sessionReady) return;
+    if (!isEmployer) router.replace('/login');
+  }, [sessionReady, isEmployer, router]);
 
   const [apps,    setApps]    = useState<Application[]>([]);
   const [total,   setTotal]   = useState(0);
@@ -101,29 +109,32 @@ function ApplicationsContent() {
   const jobId = searchParams.get('jobId') ?? '';
 
   useEffect(() => {
-    if (!user) return;
+    if (!isEmployer) return;
     setLoading(true);
     const url = `/api/employer/applications${jobId ? `?jobId=${jobId}` : ''}`;
     fetch(url)
-      .then(r => {
-        if (!r.ok) throw new Error(`API error ${r.status}`);
-        return r.json();
-      })
+      .then(r => { if (!r.ok) throw new Error(`API error ${r.status}`); return r.json(); })
       .then((d: { applications?: Application[]; total?: number }) => {
         setApps(d.applications ?? []);
         setTotal(d.total ?? 0);
       })
       .catch((err: Error) => console.error('[employer/applications]', err))
       .finally(() => setLoading(false));
-  }, [user, jobId]);
+  }, [isEmployer, jobId]);
 
   const handleUpdated = (id: string, status: string) =>
     setApps(prev => prev.map(a => a.id === id ? { ...a, status } : a));
 
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
+  const displayName =
+    dbUser?.name ??
+    user?.email?.split('@')[0] ??
+    (nextSession?.user as { companyName?: string } | undefined)?.companyName ??
+    nextSession?.user?.name ??
+    'Employer';
+
   const handleLogout = async () => { await createSupabaseClient().auth.signOut(); clearUser(); router.push('/'); };
 
-  if (isLoading || !user) {
+  if (!sessionReady) {
     return <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>;

@@ -44,6 +44,14 @@ export function LoginForm() {
     setLoading(true);
 
     try {
+      // Ensure the Supabase email is confirmed before attempting sign-in.
+      // This handles accounts that were created before auto-confirm was enabled.
+      await fetch('/api/auth/ensure-confirmed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
       const supabase = createSupabaseClient();
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -51,24 +59,32 @@ export function LoginForm() {
       });
 
       if (authError) {
-        setError(
-          authError.message === 'Invalid login credentials'
-            ? 'Incorrect email or password. Please try again.'
-            : authError.message
-        );
+        const msg = authError.message.toLowerCase();
+        if (msg.includes('email not confirmed')) {
+          setError('Your email is not confirmed. Please check your inbox for the confirmation link.');
+        } else if (msg.includes('invalid login credentials')) {
+          setError('Incorrect email or password. Please try again.');
+        } else {
+          setError(authError.message);
+        }
         return;
       }
 
       const role =
         (data.user?.user_metadata?.role as string)?.toUpperCase() ?? 'CANDIDATE';
-      const path =
-        role === 'EMPLOYER'
-          ? '/employer/dashboard'
-          : role === 'ADMIN'
-          ? '/dashboard/admin'
-          : '/dashboard';
 
-      router.push(path);
+      // Honour ?redirect= param first; otherwise send to role dashboard
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get('redirect');
+      let dest = redirectTo && redirectTo.startsWith('/') ? redirectTo : null;
+
+      if (!dest) {
+        if (role === 'ADMIN')    dest = '/dashboard/admin';
+        else if (role === 'EMPLOYER') dest = '/employer/dashboard';
+        else                     dest = '/dashboard';
+      }
+
+      router.push(dest);
       router.refresh();
     } finally {
       setLoading(false);

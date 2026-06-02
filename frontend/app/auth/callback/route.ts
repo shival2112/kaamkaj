@@ -47,12 +47,8 @@ export async function GET(request: Request) {
         // Continue — user can still log in even if DB sync fails
       }
 
-      const dashPath =
-        role.toUpperCase() === 'EMPLOYER'
-          ? '/employer/dashboard'
-          : role.toUpperCase() === 'ADMIN'
-          ? '/dashboard/admin'
-          : '/dashboard';
+      const r = role.toUpperCase();
+      const dashPath = r === 'ADMIN' ? '/dashboard/admin' : r === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard';
 
       return NextResponse.redirect(`${origin}${dashPath}`);
     }

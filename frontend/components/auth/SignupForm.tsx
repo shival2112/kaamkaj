@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, Loader2, Briefcase, User2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Briefcase, User2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseClient } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -61,8 +61,6 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
@@ -73,39 +71,36 @@ export function SignupForm() {
     setLoading(true);
 
     try {
-      const supabase = createSupabaseClient();
-      const { data, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, role },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      // Create the account server-side via Admin API — no confirmation email sent,
+      // no rate limits, duplicate emails return a clear 409 error.
+      const regRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, role }),
       });
 
-      if (authError) {
-        setError(authError.message);
+      const regData = await regRes.json() as { ok?: boolean; error?: string };
+
+      if (!regRes.ok) {
+        setError(regData.error ?? 'Registration failed. Please try again.');
         return;
       }
 
-      if (data.user) {
-        // Sync to DB
-        await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: data.user.id, email, name, role }),
-        });
+      // Account created and confirmed — sign in immediately
+      const supabase = createSupabaseClient();
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (data.session) {
-          // Email confirmation disabled — go to dashboard
-          router.push(
-            role === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard'
-          );
-          router.refresh();
-        } else {
-          setEmailSent(true);
-        }
+      if (signInError || !signInData.session) {
+        setError('Account created! Please sign in.');
+        router.push('/login');
+        return;
       }
+
+      router.push(role === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard/onboarding');
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -126,28 +121,6 @@ export function SignupForm() {
       setGoogleLoading(false);
     }
   };
-
-  if (emailSent) {
-    return (
-      <div className="rounded-xl bg-success/10 p-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-success/20">
-          <CheckCircle2 className="h-7 w-7 text-success" />
-        </div>
-        <h3 className="text-lg font-semibold text-foreground">Check your email</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          We sent a confirmation link to{' '}
-          <span className="font-medium text-foreground">{email}</span>. Click it
-          to activate your account.
-        </p>
-        <Link
-          href="/login"
-          className="mt-5 inline-block text-sm font-medium text-primary hover:underline"
-        >
-          Back to sign in
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full space-y-5">

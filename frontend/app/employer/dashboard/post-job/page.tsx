@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { X, Plus, Loader2, Briefcase } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
+import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import {
@@ -42,22 +42,27 @@ const EXP_LEVELS = [
 export default function PostJobPage() {
   const router = useRouter();
   const { user, dbUser, isLoading } = useAuth();
+  const { data: nextSession, status: nextStatus } = useSession();
   const clearUser = useAuthStore((s) => s.clearUser);
 
-  const userRole = ((user?.user_metadata?.role as string) ?? '').toUpperCase();
+  const sessionReady = !isLoading && nextStatus !== 'loading';
+  const isEmployer =
+    (!!user && (user.user_metadata?.role as string ?? '').toUpperCase() === 'EMPLOYER') ||
+    (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'EMPLOYER');
+
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-    if (!isLoading && user && userRole !== 'EMPLOYER') router.replace('/dashboard');
-  }, [user, isLoading, userRole, router]);
+    if (!sessionReady) return;
+    if (!isEmployer) router.replace('/login');
+  }, [sessionReady, isEmployer, router]);
 
   const [form, setForm] = useState({
     title: '', type: 'FULL_TIME', location: '', experienceLevel: 'MID',
     salaryMin: '', salaryMax: '', vacancies: '1', description: '',
   });
-  const [skills,   setSkills]   = useState<string[]>([]);
+  const [skills,     setSkills]     = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error,    setError]    = useState('');
+  const [error,      setError]      = useState('');
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
@@ -89,19 +94,26 @@ export default function PostJobPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Failed to post job'); return; }
+      console.log('[post-job/dashboard] created job:', (data as { id: string }).id);
       router.push('/employer/dashboard/listings');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'there';
+  const displayName =
+    dbUser?.name ??
+    user?.email?.split('@')[0] ??
+    (nextSession?.user as { companyName?: string } | undefined)?.companyName ??
+    nextSession?.user?.name ??
+    'Employer';
+
   const handleLogout = async () => {
     await createSupabaseClient().auth.signOut();
     clearUser(); router.push('/');
   };
 
-  if (isLoading || !user) {
+  if (!sessionReady) {
     return <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>;
@@ -138,12 +150,12 @@ export default function PostJobPage() {
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Job Type *">
-                    <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
                       {JOB_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </Field>
                   <Field label="Experience Level *">
-                    <select value={form.experienceLevel} onChange={e => set('experienceLevel', e.target.value)} className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={form.experienceLevel} onChange={e => set('experienceLevel', e.target.value)} className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
                       {EXP_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                     </select>
                   </Field>
@@ -155,7 +167,7 @@ export default function PostJobPage() {
                   </Field>
                   <Field label="Vacancies">
                     <input type="number" min="1" value={form.vacancies} onChange={e => set('vacancies', e.target.value)}
-                      className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                      className="w-full rounded-lg border border-border px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </Field>
                 </div>
               </div>

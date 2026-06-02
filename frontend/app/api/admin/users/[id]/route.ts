@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,38 @@ export async function PATCH(
     return NextResponse.json(updated);
   } catch (error) {
     console.error('[PATCH /api/admin/users/[id]]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { admin, unauth } = await verifyAdmin();
+    if (!admin) return NextResponse.json({ error: unauth ? 'Unauthorized' : 'Forbidden' }, { status: unauth ? 401 : 403 });
+
+    if (params.id === admin.id) {
+      return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id: params.id }, select: { role: true } });
+    if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    if (target.role === 'ADMIN') {
+      return NextResponse.json({ error: 'Cannot delete an admin account' }, { status: 400 });
+    }
+
+    // Delete from Prisma (cascades to applications, saved jobs, resume)
+    await prisma.user.delete({ where: { id: params.id } });
+
+    // Delete from Supabase Auth
+    await supabaseAdmin.auth.admin.deleteUser(params.id);
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('[DELETE /api/admin/users/[id]]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
