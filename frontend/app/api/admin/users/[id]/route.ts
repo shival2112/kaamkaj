@@ -13,6 +13,39 @@ async function verifyAdmin() {
   return { admin: dbUser?.role === 'ADMIN' ? user : null, unauth: false };
 }
 
+export async function GET(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { admin, unauth } = await verifyAdmin();
+    if (!admin) return NextResponse.json({ error: unauth ? 'Unauthorized' : 'Forbidden' }, { status: unauth ? 401 : 403 });
+
+    const user = await prisma.user.findUnique({
+      where: { id: params.id },
+      include: {
+        resume:       { select: { fileUrl: true, parsedData: true, createdAt: true } },
+        company:      { select: { id: true, name: true, industry: true } },
+        applications: {
+          orderBy: { appliedAt: 'desc' },
+          take: 10,
+          select: {
+            id: true, status: true, appliedAt: true,
+            job: { select: { id: true, title: true } },
+          },
+        },
+        _count: { select: { applications: true, savedJobs: true } },
+      },
+    });
+
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    return NextResponse.json(user);
+  } catch (error) {
+    console.error('[GET /api/admin/users/[id]]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }

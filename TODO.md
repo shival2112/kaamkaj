@@ -187,6 +187,111 @@
 
 ---
 
+---
+
+## Phase 16: Missing Core Pages
+- [x] `/companies` listing page — cards with search, industry/size filter sidebar, active job count, verified badge
+- [x] `/companies/[id]` detail page — gradient hero, about section, open jobs list, overview sidebar
+- [x] `GET /api/companies` route — list with search + filters + pagination
+- [x] `GET /api/companies/[id]` route — single company with active jobs
+- [x] `CompanyFilters` client component — industry + size radio filters
+- [x] Loading skeletons for `/companies` and `/companies/[id]`
+- [x] Error boundaries for `/companies`
+- [x] "Companies" added to Navbar nav links
+- [x] Password reset flow — `/forgot-password` page + Supabase `resetPasswordForEmail`
+- [x] `/update-password` page — `supabase.auth.updateUser` after recovery link clicked
+- [x] `ForgotPasswordForm` + `UpdatePasswordForm` client components with inline validation
+- [x] `/auth/callback` updated to respect `?next=` param for recovery redirect
+- [x] "Forgot password?" link wired in LoginForm (was "coming soon")
+- [x] Public candidate profile page `/profile/[id]` — shareable URL, gradient hero, bio, skills, experience badge
+- [x] `GET /api/profile/[id]` route — public-safe fields only (no email/phone)
+- [x] `ShareProfileButton` — copy-to-clipboard with "Copied!" feedback
+- [x] "View Public Profile" link added to candidate dashboard profile header
+
+---
+
+## Phase 17: Candidate Experience Improvements
+- [x] Similar jobs section on `/jobs/[id]` — server-side query (same company, location, or skills), 4-card grid
+- [x] `RecentlyViewedTracker` — localStorage writer, silently tracks job IDs on each job detail visit
+- [x] `RecentlyViewedJobs` — client component, reads localStorage + batch API, horizontal scroll strip on dashboard
+- [x] `GET /api/jobs/batch` — fetch multiple jobs by `?ids=` for recently viewed
+- [x] Cover letter editor — inline expand in `ApplyButton`: textarea + Submit / Skip letter buttons
+- [x] Apply route updated to accept and save `coverLetter` from request body
+- [x] Application withdrawal — `DELETE /api/candidate/applications/[id]` (APPLIED/REVIEWING only)
+- [x] Withdraw button on `/dashboard/applications` with optimistic removal
+- [x] Job Alerts — `GET/POST/DELETE /api/candidate/alerts` (stored in `Resume.parsedData`)
+- [x] `/dashboard/alerts` page — create/delete up to 5 keyword+location alerts
+- [x] "Job Alerts" + "My Interviews" added to DashboardSidebar DEFAULT_NAV
+
+---
+
+## Phase 18: Employer & Admin Gaps
+- [x] Employer company profile edit `/employer/profile` — real DB (GET/PATCH `/api/employer/company`), replaces Zustand-only store
+- [x] Job expiry — non-blocking `updateMany` in `GET /api/jobs` auto-closes jobs where `expiresAt < now`
+- [x] Admin bulk actions on Users page — checkboxes, select-all, bulk Suspend / Restore action bar
+- [x] Admin bulk actions on Jobs page — checkboxes, select-all, bulk Close / Reopen action bar
+- [x] Admin Audit Log `/dashboard/admin/activity` — timeline feed of recent user registrations, job posts, and applications
+- [x] `GET /api/admin/activity` route — merges 3 DB queries, sorted by timestamp desc, limit 50
+- [x] "Activity" link added to admin sidebar nav
+
+---
+
+## Phase 19: Real-time & Notifications
+- [x] Supabase Realtime on employer notification bell — subscribes to `applications` INSERT; auto re-fetches + bumps live unread count without polling
+- [x] Green "live" dot on bell when no unread messages (shows Realtime is connected)
+- [x] Supabase Realtime on candidate dashboard — `RealtimeStatusListener` subscribes to `applications` UPDATE filtered by `candidate_id`
+- [x] `ToastContainer` + `useToast` hook — auto-dismissing toast UI, no external library
+- [x] Toast fires when employer changes candidate's application status (SHORTLISTED, REJECTED, etc.)
+- [x] `interviewScheduled` email template — HTML email with date, time, mode, meeting link
+- [x] `POST /api/employer/interviews` — schedules interview, sends candidate email via Ethereal (free dev SMTP), logs preview URL to console
+
+---
+
+## Phase 20: Quality & Portfolio Polish
+- [x] `lib/formatters.ts` — shared `formatSalary`, `timeAgo`, `tileColor`, `TYPE_LABELS`, `TYPE_BADGE`
+- [x] Vitest unit tests — 2 test files, 21 passing tests covering `cn()`, `formatSalary`, `tileColor`, `timeAgo`
+- [x] `npm test` script added to package.json; `vitest.config.ts` configured with path aliases
+- [x] PWA — `public/manifest.json` (name, icons, shortcuts, theme colour), `public/sw.js` (cache-first, skips API routes)
+- [x] `ServiceWorkerRegistrar` — client component, registers SW on mount, logs scope to console
+- [x] PWA metadata in root layout — `manifest`, `themeColor`, `appleWebApp`
+- [x] `app/sitemap.ts` — dynamic, includes static pages + all active jobs + all companies (max 300 URLs)
+- [x] `app/robots.ts` — allows public pages, disallows dashboard/employer/api/auth routes
+- [x] Dark mode CSS vars — `.dark` selector in globals.css with inverted HSL palette
+- [x] `DarkModeToggle` — Moon/Sun button, reads `prefers-color-scheme` on first load, persists to localStorage
+- [x] Dark mode toggle wired into Navbar (desktop) with smooth `transition` on body
+- [x] A11y — skip-to-content link in root layout (sr-only, visible on focus)
+- [x] A11y — `<main id="main-content">` wraps page content for skip-link target
+
+---
+
+---
+
+## Phase 21: Advanced Engagement & Analytics
+- [x] Prisma schema — `viewCount` on Job, `employerNotes` + `rating` on Application, new `ApplicationStatusLog` model; `npx prisma db push` applied
+- [x] Feature 1: Job View Counter — `POST /api/jobs/[id]/view` increments `viewCount`; `RecentlyViewedTracker` fires it on every job detail visit; view count shown in employer listings page
+- [x] Feature 2: Employer Application Notes — `PATCH /api/employer/applications/[id]` accepts `{ notes }` to save private notes; `NotesEditor` popover on every application row (amber badge when note exists)
+- [x] Feature 3: Application Status History — every `PATCH` status change creates an `ApplicationStatusLog` record; `GET /api/employer/applications/[id]/history` returns the full timeline
+- [x] Feature 4: Admin CSV Export — `GET /api/admin/export?type=users|jobs|applications` streams a CSV; "Export CSV" download link added to admin Users and Jobs pages
+- [x] Feature 5: Candidate Rating — `PATCH /api/employer/applications/[id]` accepts `{ rating: 1–5 }`; interactive star-rating widget on Shortlisted page, persists to DB; click same star to clear
+- [x] Feature 6: Experience Level Filter — `GET /api/jobs` now accepts `?experienceLevel=FRESHER|JUNIOR|MID|SENIOR|LEAD`; validated against Prisma enum before applying
+- [x] Feature 7: Experience Level filter in `/jobs` sidebar — `JobFilters.tsx` radio group; `jobs/page.tsx` passes param to Prisma where clause
+- [x] Feature 8: Job share buttons — `JobShareButtons` client component (WhatsApp / LinkedIn / X / copy-link) in the `/jobs/[id]` sidebar card
+- [x] Feature 9: Admin Data Exports fully surfaced — three one-click download links on Admin Reports page; individual Export CSV on Users + Jobs pages
+- [x] Feature 10: Employer Analytics real data — page rewritten to fetch `GET /api/employer/analytics`; API updated with `viewCount`, shortlisted count, job status; KPI row + 14-day bar timeline with hover tooltips
+- [x] Feature 11: View count in admin jobs table — VIEWS column added to header + every job row
+
+---
+
+## Phase 22: Discovery & Candidate Experience
+- [x] F1: Trending sort — `GET /api/jobs` accepts `?sort=newest|trending|salary_desc|salary_asc`; sort tab pills on `/jobs` page; 🔥 Trending badge on job cards with ≥10 views
+- [x] F2: Cover letter templates — 3 built-in templates (Enthusiastic / Experienced / Fresher) selectable in `ApplyButton` compose step; click to auto-fill textarea
+- [x] F3: Application daily rate limit — `POST /api/jobs/[id]/apply` enforces 10 applications/24 h per candidate; returns 429 with retry-after hours; `ApplyButton` shows the error message
+- [x] F4: Company follow — `GET/POST/DELETE /api/candidate/follows` (stored in `Resume.parsedData.followedCompanies`); `CompanyFollowButton` client component on `/companies/[id]` with optimistic toggle
+- [x] F5: Admin user detail page — `/dashboard/admin/users/[id]`; shows profile, KPI strip (apps / saved / skills), resume link, recent applications; user names in list are now clickable links; `GET /api/admin/users/[id]` added
+- [x] F6: Notification preferences — `GET/PATCH /api/candidate/notification-prefs` (stored in `parsedData.notifPrefs`); toggle switches on candidate profile page for status change / interview / new jobs emails; saves on every toggle
+
+---
+
 ## Blockers
 *(None currently)*
 

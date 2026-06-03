@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, Download, X, FileText, ExternalLink } from 'lucide-react';
+import { ChevronDown, Download, X, FileText, ExternalLink, StickyNote, Check } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ interface Application {
   id: string;
   status: string;
   appliedAt: string;
+  employerNotes?: string | null;
   job:       { id: string; title: string; status: string };
   candidate: { id: string; name: string; email: string };
 }
@@ -250,6 +251,67 @@ function StageActions({ app, onUpdated }: { app: Application; onUpdated: (id: st
   );
 }
 
+// ─── Notes editor ────────────────────────────────────────────────────────────
+
+function NotesEditor({ appId, initialNotes }: { appId: string; initialNotes?: string | null }) {
+  const [open,   setOpen]   = useState(false);
+  const [text,   setText]   = useState(initialNotes ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    await fetch(`/api/employer/applications/${appId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: text }),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        title="Private notes"
+        className={cn(
+          'flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+          text
+            ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+            : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+        )}
+      >
+        <StickyNote className="h-3.5 w-3.5" />
+        {text ? 'Note ✎' : 'Note'}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Private note (only you can see this)</p>
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            rows={3}
+            placeholder="Add your notes here…"
+            className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 focus:border-[#6B46C1] focus:outline-none focus:ring-1 focus:ring-[#6B46C1]"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <button onClick={() => setOpen(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="flex items-center gap-1 rounded-lg bg-[#6B46C1] px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+            >
+              {saved ? <><Check className="h-3 w-3" /> Saved</> : saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CSV export ──────────────────────────────────────────────────────────────
 
 function exportToCSV(apps: Application[], filename: string) {
@@ -441,8 +503,11 @@ function ApplicationsContent() {
                   {new Date(app.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </p>
 
-                {/* Action */}
-                <StageActions app={app} onUpdated={handleUpdated} />
+                {/* Actions */}
+                <div className="flex items-center gap-1.5">
+                  <StageActions app={app} onUpdated={handleUpdated} />
+                  <NotesEditor appId={app.id} initialNotes={app.employerNotes} />
+                </div>
               </div>
             ))
           )}

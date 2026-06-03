@@ -31,12 +31,12 @@ const TYPE_DISPLAY: Record<string, string> = {
 interface DbApiJob {
   id: string; title: string; location: string; type: string; status: string;
   skills: string[]; vacancies: number; experienceLevel: string;
-  description: string; createdAt: string;
+  description: string; createdAt: string; viewCount?: number;
   totalApplicants?: number;
   applicantsThisWeek?: number;
 }
 
-interface JobPerf { total: number; thisWeek: number }
+interface JobPerf { total: number; thisWeek: number; views: number }
 
 function dbJobToLocal(j: DbApiJob): Job {
   return {
@@ -83,7 +83,7 @@ export default function MyListingsPage() {
         // Build performance map from API-supplied counts
         const pm = new Map<string, JobPerf>();
         data.jobs.forEach(j => {
-          pm.set(j.id, { total: j.totalApplicants ?? 0, thisWeek: j.applicantsThisWeek ?? 0 });
+          pm.set(j.id, { total: j.totalApplicants ?? 0, thisWeek: j.applicantsThisWeek ?? 0, views: j.viewCount ?? 0 });
         });
         setPerfMap(pm);
 
@@ -248,6 +248,9 @@ export default function MyListingsPage() {
                       <span className="font-semibold text-green-600">
                         +{perfMap.get(job.id)!.thisWeek} this week
                       </span>
+                    )}
+                    {(perfMap.get(job.id)?.views ?? 0) > 0 && (
+                      <span>👁 {perfMap.get(job.id)!.views} views</span>
                     )}
                   </div>
                 </div>

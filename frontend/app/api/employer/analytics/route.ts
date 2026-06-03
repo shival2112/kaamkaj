@@ -20,7 +20,7 @@ export async function GET() {
 
     const jobs = await prisma.job.findMany({
       where: { companyId: company.id },
-      select: { id: true, title: true, _count: { select: { applications: true } } },
+      select: { id: true, title: true, status: true, viewCount: true, _count: { select: { applications: true } } },
       orderBy: { createdAt: 'desc' },
     });
     const jobIds = jobs.map(j => j.id);
@@ -35,7 +35,7 @@ export async function GET() {
 
     const applications = await prisma.application.findMany({
       where: { jobId: { in: jobIds } },
-      select: { status: true, appliedAt: true },
+      select: { jobId: true, status: true, appliedAt: true },
     });
 
     const byStatus: Record<string, number> = {};
@@ -43,12 +43,26 @@ export async function GET() {
       byStatus[app.status] = (byStatus[app.status] ?? 0) + 1;
     }
 
+    const shortlistedByJob: Record<string, number> = {};
+    for (const app of applications) {
+      if (app.status === 'SHORTLISTED' || app.status === 'HIRED') {
+        shortlistedByJob[app.jobId] = (shortlistedByJob[app.jobId] ?? 0) + 1;
+      }
+    }
+
     const timeline = buildTimeline(applications.map(a => a.appliedAt));
 
     const topJobs = jobs
-      .map(j => ({ id: j.id, title: j.title, count: j._count.applications }))
+      .map(j => ({
+        id:          j.id,
+        title:       j.title,
+        status:      j.status,
+        count:       j._count.applications,
+        shortlisted: shortlistedByJob[j.id] ?? 0,
+        views:       j.viewCount,
+      }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 10);
 
     console.log('[GET /api/employer/analytics] company', company.id, '→', applications.length, 'total applications');
     return NextResponse.json({ summary: { total: applications.length, byStatus }, topJobs, timeline });

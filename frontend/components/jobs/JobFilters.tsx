@@ -12,6 +12,14 @@ const JOB_TYPES = [
   { value: 'INTERNSHIP',  label: 'Internship' },
 ] as const;
 
+const EXP_LEVELS = [
+  { value: 'FRESHER', label: 'Fresher' },
+  { value: 'JUNIOR',  label: '1–3 yrs' },
+  { value: 'MID',     label: '3–6 yrs' },
+  { value: 'SENIOR',  label: '6–10 yrs' },
+  { value: 'LEAD',    label: '10+ yrs' },
+] as const;
+
 const SALARY_RANGES = [
   { label: 'Under ₹3L',     min: '0',      max: '300000' },
   { label: '₹3L – ₹6L',    min: '300000', max: '600000' },
@@ -26,6 +34,7 @@ export function JobFilters() {
   const searchParams = useSearchParams();
 
   const currentType     = searchParams.get('type') ?? '';
+  const currentExpLevel = searchParams.get('experienceLevel') ?? '';
   const currentLocation = searchParams.get('location') ?? '';
   const currentSalMin   = searchParams.get('salaryMin') ?? '';
   const currentSalMax   = searchParams.get('salaryMax') ?? '';
@@ -40,11 +49,11 @@ export function JobFilters() {
 
   const clearAll = () => {
     const params = new URLSearchParams(searchParams.toString());
-    ['type', 'location', 'salaryMin', 'salaryMax', 'page'].forEach(k => params.delete(k));
+    ['type', 'experienceLevel', 'location', 'salaryMin', 'salaryMax', 'page'].forEach(k => params.delete(k));
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const hasFilters = currentType || currentLocation || currentSalMin || currentSalMax;
+  const hasFilters = currentType || currentExpLevel || currentLocation || currentSalMin || currentSalMax;
 
   return (
     <aside className="w-full lg:w-64 xl:w-72 shrink-0">
@@ -79,6 +88,28 @@ export function JobFilters() {
                   value={value}
                   checked={currentType === value}
                   onChange={() => update('type', currentType === value ? '' : value)}
+                  className="h-4 w-4 accent-primary"
+                />
+                <span className="text-sm text-foreground">{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Experience Level */}
+        <div className="mt-5">
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Experience
+          </p>
+          <div className="space-y-2">
+            {EXP_LEVELS.map(({ value, label }) => (
+              <label key={value} className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="radio"
+                  name="experienceLevel"
+                  value={value}
+                  checked={currentExpLevel === value}
+                  onChange={() => update('experienceLevel', currentExpLevel === value ? '' : value)}
                   className="h-4 w-4 accent-primary"
                 />
                 <span className="text-sm text-foreground">{label}</span>

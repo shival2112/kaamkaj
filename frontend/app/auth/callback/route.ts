@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  // Used by password-reset flow: after code exchange, redirect to this path
+  const next = searchParams.get('next');
 
   if (code) {
     const cookieStore = await cookies();
@@ -45,6 +47,11 @@ export async function GET(request: Request) {
         });
       } catch {
         // Continue — user can still log in even if DB sync fails
+      }
+
+      // Password-reset flow: skip role routing, go to the requested next path
+      if (next && next.startsWith('/')) {
+        return NextResponse.redirect(`${origin}${next}`);
       }
 
       const r = role.toUpperCase();

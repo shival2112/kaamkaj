@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ClipboardList, ExternalLink } from 'lucide-react';
+import { ClipboardList, ExternalLink, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { useSession } from 'next-auth/react';
@@ -41,9 +41,10 @@ export default function ApplicationsPage() {
     if (!isCandidate) router.replace('/login');
   }, [sessionReady, isCandidate, router]);
 
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [total,        setTotal]        = useState(0);
-  const [loading,      setLoading]      = useState(true);
+  const [applications,  setApplications]  = useState<Application[]>([]);
+  const [total,         setTotal]         = useState(0);
+  const [loading,       setLoading]       = useState(true);
+  const [withdrawing,   setWithdrawing]   = useState<string | null>(null);
 
   useEffect(() => {
     if (!isCandidate) return;
@@ -56,6 +57,20 @@ export default function ApplicationsPage() {
 
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
   const role = dbUser?.role ?? 'CANDIDATE';
+
+  const handleWithdraw = async (appId: string) => {
+    if (!confirm('Withdraw this application? This cannot be undone.')) return;
+    setWithdrawing(appId);
+    try {
+      const res = await fetch(`/api/candidate/applications/${appId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setApplications(prev => prev.filter(a => a.id !== appId));
+        setTotal(prev => prev - 1);
+      }
+    } finally {
+      setWithdrawing(null);
+    }
+  };
 
   const handleLogout = async () => {
     const supabase = createSupabaseClient();
@@ -132,10 +147,23 @@ export default function ApplicationsPage() {
                   <p className="text-sm text-muted-foreground">
                     {new Date(app.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
-                  <Link href={`/jobs/${app.job.id}`}
-                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-                    <ExternalLink className="h-3 w-3" /> View
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/jobs/${app.job.id}`}
+                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+                      <ExternalLink className="h-3 w-3" /> View
+                    </Link>
+                    {['APPLIED', 'REVIEWING'].includes(app.status) && (
+                      <button
+                        onClick={() => handleWithdraw(app.id)}
+                        disabled={withdrawing === app.id}
+                        title="Withdraw application"
+                        className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        {withdrawing === app.id ? '…' : 'Withdraw'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}

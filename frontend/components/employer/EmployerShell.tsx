@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createSupabaseClient } from '@/lib/supabase';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -22,7 +23,6 @@ import {
 import { useEmployerStore } from '@/store/employerStore';
 import { useAppAuth } from '@/context/AppAuthContext';
 import { useSession } from 'next-auth/react';
-import { createSupabaseClient } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
 const NAV = [
@@ -183,6 +183,7 @@ function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds_,      setReadIds_]      = useState<Set<string>>(new Set());
   const [loading,       setLoading]       = useState(false);
+  const [liveCount,     setLiveCount]     = useState(0);
   const ref = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = useCallback(() => {
@@ -200,6 +201,30 @@ function NotificationBell() {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Supabase Realtime — subscribe to new applications for this employer's jobs
+  // When a new INSERT arrives, re-fetch the notifications list and bump a live counter
+  useEffect(() => {
+    const supabase = createSupabaseClient();
+    const channel = supabase
+      .channel('employer-new-applications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'applications' },
+        () => {
+          // Re-fetch so the new application shows up in the bell
+          fetchNotifications();
+          setLiveCount(c => c + 1);
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Realtime] Employer bell subscribed to new applications');
+        }
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchNotifications]);
+
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -209,7 +234,7 @@ function NotificationBell() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const unreadCount = notifications.filter(n => !readIds_.has(n.id)).length;
+  const unreadCount = notifications.filter(n => !readIds_.has(n.id)).length + liveCount;
 
   const handleOpen = () => {
     setOpen(v => !v);
@@ -221,6 +246,7 @@ function NotificationBell() {
     const all = new Set<string>(notifications.map(n => n.id));
     setReadIds_(all);
     saveReadIds(all);
+    setLiveCount(0);
   };
 
   const markRead = (id: string) => {
@@ -238,10 +264,13 @@ function NotificationBell() {
         className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100"
       >
         <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
+        {unreadCount > 0 ? (
           <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
+        ) : (
+          /* Realtime connected indicator — subtle green dot */
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-green-400" title="Live" />
         )}
       </button>
 

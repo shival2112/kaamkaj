@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Users, Briefcase, FileBarChart, Calendar, UserPlus,
+  LayoutDashboard, Users, Briefcase, FileBarChart, Calendar, UserPlus, Activity,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
@@ -19,6 +19,7 @@ const ADMIN_NAV: SidebarNavSection[] = [
       { href: '/dashboard/admin/jobs',     label: 'Jobs',      icon: Briefcase },
       { href: '/dashboard/admin/meetings', label: 'Meetings',  icon: Calendar },
       { href: '/dashboard/admin/reports',  label: 'Reports',   icon: FileBarChart },
+      { href: '/dashboard/admin/activity', label: 'Activity',  icon: Activity },
     ],
   },
 ];

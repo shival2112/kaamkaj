@@ -9,8 +9,10 @@ import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { ApplyButton } from '@/components/jobs/ApplyButton';
 import { SaveButton } from '@/components/jobs/SaveButton';
+import { RecentlyViewedTracker } from '@/components/jobs/RecentlyViewedTracker';
+import { JobShareButtons } from '@/components/jobs/JobShareButtons';
 import { cn } from '@/lib/utils';
-import { JobType, ExperienceLevel } from '@prisma/client';
+import { JobType, ExperienceLevel, JobStatus } from '@prisma/client';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +113,22 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     // not fatal
   }
 
+  // ── Similar jobs ──────────────────────────────────────────────────────────
+  const similarJobs = await prisma.job.findMany({
+    where: {
+      id:     { not: job.id },
+      status: JobStatus.ACTIVE,
+      OR: [
+        { companyId: job.companyId },
+        { location:  { contains: job.location.split(',')[0], mode: 'insensitive' } },
+        { skills:    { hasSome: job.skills.slice(0, 3) } },
+      ],
+    },
+    include: { company: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 4,
+  });
+
   const color = tileColor(job.company.name);
   const salary = formatSalary(job.salaryMin, job.salaryMax);
   const postedAt = new Date(job.createdAt).toLocaleDateString('en-IN', {
@@ -118,6 +136,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   });
 
   return (
+    <>
     <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
 
@@ -270,11 +289,59 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                   </div>
                 )}
               </div>
+
+              <JobShareButtons title={job.title} company={job.company.name} />
             </div>
           </div>
 
         </div>
+
+        {/* ── Similar Jobs ── */}
+        {similarJobs.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Similar Jobs</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {similarJobs.map(sj => {
+                const sjColor  = tileColor(sj.company.name);
+                const sjSalary = formatSalary(sj.salaryMin, sj.salaryMax);
+                return (
+                  <Link
+                    key={sj.id}
+                    href={`/jobs/${sj.id}`}
+                    className="group flex flex-col rounded-xl border border-border bg-white p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+                  >
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl text-base font-bold text-white', sjColor)}>
+                      {sj.company.name[0].toUpperCase()}
+                    </div>
+                    <h3 className="mt-3 line-clamp-2 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                      {sj.title}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{sj.company.name}</p>
+                    <div className="mt-auto pt-3 space-y-1">
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />{sj.location}
+                      </p>
+                      {sjSalary && (
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <IndianRupee className="h-3 w-3 shrink-0" />{sjSalary} / yr
+                        </p>
+                      )}
+                    </div>
+                    <span className="mt-3 rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-center text-xs font-medium text-primary">
+                      {TYPE_LABELS[sj.type]}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
+
+    {/* Track this job in recently viewed (client-only) */}
+    <RecentlyViewedTracker jobId={job.id} />
+    </>
   );
 }

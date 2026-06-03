@@ -10,6 +10,7 @@ interface Application {
   id: string;
   status: string;
   appliedAt: string;
+  rating?: number | null;
   job:       { id: string; title: string };
   candidate: { id: string; name: string; email: string };
 }
@@ -25,6 +26,43 @@ const TILE_COLORS = ['bg-blue-500','bg-violet-500','bg-green-600','bg-orange-500
 function tileColor(name: string) {
   let h = 0; for (const c of name) h = c.charCodeAt(0) + h * 31;
   return TILE_COLORS[Math.abs(h) % TILE_COLORS.length];
+}
+
+// ─── Star rating ──────────────────────────────────────────────────────────────
+
+function StarRating({ appId, initialRating }: { appId: string; initialRating?: number | null }) {
+  const [rating,  setRating]  = useState(initialRating ?? 0);
+  const [hover,   setHover]   = useState(0);
+  const [saving,  setSaving]  = useState(false);
+
+  const save = async (value: number) => {
+    const next = value === rating ? 0 : value; // click same star → clear
+    setSaving(true);
+    setRating(next);
+    await fetch(`/api/employer/applications/${appId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: next || null }),
+    }).catch(() => {});
+    setSaving(false);
+  };
+
+  return (
+    <div className="flex items-center gap-0.5" title={saving ? 'Saving…' : `Rating: ${rating}/5`}>
+      {[1, 2, 3, 4, 5].map(star => (
+        <button
+          key={star}
+          onClick={() => save(star)}
+          onMouseEnter={() => setHover(star)}
+          onMouseLeave={() => setHover(0)}
+          disabled={saving}
+          className="text-lg leading-none transition-transform hover:scale-110 disabled:opacity-50"
+        >
+          <span className={(hover || rating) >= star ? 'text-amber-400' : 'text-gray-200'}>★</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // ─── Action button ────────────────────────────────────────────────────────────
@@ -137,8 +175,8 @@ export default function ShortlistedPage() {
 
         {/* Table */}
         <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-            {['Candidate', 'Job', 'Stage', 'Applied', 'Action'].map(col => (
+          <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto_auto] gap-4 border-b border-gray-100 px-6 py-3">
+            {['Candidate', 'Job', 'Stage', 'Applied', 'Rating', 'Action'].map(col => (
               <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
                 {col}
               </span>
@@ -163,7 +201,7 @@ export default function ShortlistedPage() {
           ) : (
             apps.map(app => (
               <div key={app.id}
-                className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+                className="grid grid-cols-[2fr_2fr_1fr_1fr_auto_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
                 {/* Candidate */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(app.candidate.name)}`}>
@@ -187,6 +225,9 @@ export default function ShortlistedPage() {
                 <p className="text-sm text-gray-500">
                   {new Date(app.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </p>
+
+                {/* Rating */}
+                <StarRating appId={app.id} initialRating={app.rating} />
 
                 {/* Actions */}
                 <HireRejectActions app={app} onUpdated={handleUpdated} />

@@ -11,6 +11,9 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { KPICard } from '@/components/ui/KPICard';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { RecentlyViewedJobs } from '@/components/jobs/RecentlyViewedJobs';
+import { RealtimeStatusListener } from '@/components/dashboard/RealtimeStatusListener';
+import { ToastContainer, useToast } from '@/components/ui/Toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,7 @@ export default function DashboardPage() {
   const { user, dbUser, isLoading } = useAuth();        // Supabase session
   const { data: nextSession, status: nextStatus } = useSession(); // NextAuth session
   const clearUser = useAuthStore((s) => s.clearUser);
+  const { toasts, addToast, dismiss } = useToast();
 
   // Both auth mechanisms must finish loading before we make a redirect decision.
   const sessionReady = !isLoading && nextStatus !== 'loading';
@@ -135,6 +139,7 @@ export default function DashboardPage() {
   }
 
   return (
+    <>
     <div className="flex h-screen overflow-hidden">
       <DashboardSidebar displayName={displayName} role={role} onLogout={handleLogout} />
 
@@ -250,8 +255,19 @@ export default function DashboardPage() {
               ))
             )}
           </div>
+
+          {/* Recently Viewed Jobs */}
+          <RecentlyViewedJobs />
+
         </div>
       </div>
     </div>
+
+    {/* Real-time application status notifications (Supabase Realtime) */}
+    {user?.id && (
+      <RealtimeStatusListener userId={user.id} onNotification={addToast} />
+    )}
+    <ToastContainer toasts={toasts} onDismiss={dismiss} />
+    </>
   );
 }

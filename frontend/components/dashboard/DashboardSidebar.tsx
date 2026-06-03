@@ -12,6 +12,8 @@ import {
   LogOut,
   Zap,
   MessageCircle,
+  Bell,
+  CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +37,8 @@ const DEFAULT_NAV_SECTIONS: SidebarNavSection[] = [
       { href: '/dashboard',              label: 'Dashboard',       icon: LayoutDashboard },
       { href: '/dashboard/applications', label: 'My Applications', icon: ClipboardList },
       { href: '/dashboard/saved',        label: 'Saved Jobs',      icon: Bookmark },
+      { href: '/dashboard/alerts',       label: 'Job Alerts',      icon: Bell },
+      { href: '/dashboard/interviews',   label: 'My Interviews',   icon: CalendarCheck },
       { href: '/dashboard/profile',      label: 'My Profile',      icon: User },
     ],
   },

@@ -30,21 +30,49 @@ export async function PATCH(
       return NextResponse.json({ error: 'Application not found' }, { status: 404 });
     }
 
-    const body = await request.json() as { status: string };
-    const validStatuses = Object.values(ApplicationStatus) as string[];
-    if (!validStatuses.includes(body.status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    const body = await request.json() as { status?: string; notes?: string; rating?: number };
+
+    if (!body.status && body.notes === undefined && body.rating === undefined) {
+      return NextResponse.json({ error: 'Provide status, notes, or rating' }, { status: 400 });
+    }
+
+    if (body.rating !== undefined && (body.rating < 1 || body.rating > 5 || !Number.isInteger(body.rating))) {
+      return NextResponse.json({ error: 'Rating must be 1–5' }, { status: 400 });
+    }
+
+    if (body.status) {
+      const validStatuses = Object.values(ApplicationStatus) as string[];
+      if (!validStatuses.includes(body.status)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
     }
 
     const updated = await prisma.application.update({
       where: { id: params.id },
-      data: { status: body.status as ApplicationStatus },
+      data: {
+        ...(body.status && { status: body.status as ApplicationStatus }),
+        ...(body.notes !== undefined && { employerNotes: body.notes }),
+        ...(body.rating !== undefined && { rating: body.rating }),
+      },
     });
-    console.log('[PATCH /api/employer/applications/:id] status →', body.status, 'for application', params.id);
+
+    // Append to status history whenever status changes
+    if (body.status) {
+      prisma.applicationStatusLog.create({
+        data: {
+          applicationId: params.id,
+          status:        body.status as ApplicationStatus,
+          changedBy:     userId,
+        },
+      }).catch(err => console.error('[status-log] failed to create log:', err));
+    }
+
+    const what = body.status ? `status → ${body.status}` : body.rating !== undefined ? `rating → ${body.rating}` : 'notes updated';
+    console.log('[PATCH /api/employer/applications/:id] updated application', params.id, what);
 
     // Notify candidate on meaningful status changes
     const notifyStatuses: string[] = ['SHORTLISTED', 'REJECTED'];
-    if (notifyStatuses.includes(body.status) && application.candidate?.email) {
+    if (body.status && notifyStatuses.includes(body.status) && application.candidate?.email) {
       sendEmail({
         to: application.candidate.email,
         subject: `Update on your application — ${application.job.title}`,

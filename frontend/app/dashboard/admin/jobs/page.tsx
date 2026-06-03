@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Briefcase, Search, Loader2, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Briefcase, Search, Loader2, ChevronLeft, ChevronRight, ExternalLink, XCircle, RefreshCw, Download } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 
 interface JobRow {
   id: string; title: string; location: string; type: string;
-  status: string; createdAt: string;
+  status: string; createdAt: string; viewCount?: number;
   company: { name: string };
   _count: { applications: number };
 }
@@ -35,7 +35,9 @@ export default function AdminJobsPage() {
   const [loading,    setLoading]    = useState(true);
   const [q,          setQ]          = useState('');
   const [page,       setPage]       = useState(1);
-  const [actionMap,  setActionMap]  = useState<Record<string, boolean>>({});
+  const [actionMap,   setActionMap]   = useState<Record<string, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -65,6 +67,42 @@ export default function AdminJobsPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); load(); };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === jobs.length && jobs.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(jobs.map(j => j.id)));
+    }
+  };
+
+  const handleBulkStatus = async (status: 'CLOSED' | 'ACTIVE') => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          fetch(`/api/admin/jobs/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+          }),
+        ),
+      );
+      setJobs(prev => prev.map(j => selectedIds.has(j.id) ? { ...j, status } : j));
+      setSelectedIds(new Set());
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const updateJobStatus = async (id: string, status: string) => {
     setActionMap(prev => ({ ...prev, [id]: true }));
@@ -99,12 +137,48 @@ export default function AdminJobsPage() {
             Search
           </button>
         </form>
+        <a
+          href="/api/admin/export?type=jobs"
+          download
+          className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </a>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">
+              {selectedIds.size} job{selectedIds.size !== 1 ? 's' : ''} selected
+            </span>
+            <button onClick={() => handleBulkStatus('CLOSED')} disabled={bulkLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50">
+              {bulkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+              Close all
+            </button>
+            <button onClick={() => handleBulkStatus('ACTIVE')} disabled={bulkLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50">
+              {bulkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Reopen all
+            </button>
+            <button onClick={() => setSelectedIds(new Set())}
+              className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+              Clear selection
+            </button>
+          </div>
+        )}
+
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-            {(['JOB TITLE', 'COMPANY', 'APPS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
+          <div className="grid grid-cols-[auto_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
+            <input type="checkbox"
+              checked={jobs.length > 0 && selectedIds.size === jobs.length}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 accent-primary cursor-pointer"
+              title="Select all"
+            />
+            {(['JOB TITLE', 'COMPANY', 'VIEWS', 'APPS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
               <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
             ))}
           </div>
@@ -121,7 +195,12 @@ export default function AdminJobsPage() {
             </div>
           ) : jobs.map(job => (
             <div key={job.id}
-              className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+              className="grid grid-cols-[auto_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+              <input type="checkbox"
+                checked={selectedIds.has(job.id)}
+                onChange={() => toggleSelect(job.id)}
+                className="h-4 w-4 accent-primary cursor-pointer"
+              />
               <div className="flex items-center gap-3">
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${tileColor(job.company.name)}`}>
                   {job.company.name[0]?.toUpperCase() ?? '?'}
@@ -132,6 +211,7 @@ export default function AdminJobsPage() {
                 </div>
               </div>
               <p className="truncate text-sm text-muted-foreground">{job.company.name}</p>
+              <p className="text-sm font-medium text-foreground">{job.viewCount ?? 0}</p>
               <p className="text-sm font-medium text-foreground">{job._count.applications}</p>
               <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', STATUS_STYLES[job.status] ?? 'bg-gray-100 text-gray-500')}>
                 {job.status.charAt(0) + job.status.slice(1).toLowerCase()}

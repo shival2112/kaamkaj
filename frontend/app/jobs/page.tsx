@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { MapPin, IndianRupee, Clock, Search, Briefcase } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { JobType, JobStatus } from '@prisma/client';
+import { JobType, JobStatus, ExperienceLevel } from '@prisma/client';
 import { JobFilters } from '@/components/jobs/JobFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { SaveButton } from '@/components/jobs/SaveButton';
@@ -75,10 +75,18 @@ const TYPE_STYLES: Record<JobType, string> = {
   INTERNSHIP: 'bg-orange-50 text-orange-700 border-orange-200',
 };
 
+const SORT_OPTIONS = [
+  { value: 'newest',      label: 'Newest first' },
+  { value: 'trending',    label: '🔥 Trending' },
+  { value: 'salary_desc', label: 'Salary: High → Low' },
+  { value: 'salary_asc',  label: 'Salary: Low → High' },
+] as const;
+type SortOption = typeof SORT_OPTIONS[number]['value'];
+
 interface PageProps {
   searchParams: {
-    q?: string; type?: string; location?: string;
-    salaryMin?: string; salaryMax?: string; page?: string;
+    q?: string; type?: string; experienceLevel?: string; location?: string;
+    salaryMin?: string; salaryMax?: string; sort?: string; page?: string;
   };
 }
 
@@ -86,20 +94,32 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const q         = searchParams.q?.trim()          || undefined;
   const location  = searchParams.location?.trim()   || undefined;
   const page      = Math.max(1, Number(searchParams.page || 1));
+  const sort      = (SORT_OPTIONS.map(o => o.value) as string[]).includes(searchParams.sort ?? '')
+    ? (searchParams.sort as SortOption) : 'newest';
   const rawType   = searchParams.type?.toUpperCase();
-  const typeFilter = rawType && Object.values(JobType).includes(rawType as JobType)
+  const rawLevel  = searchParams.experienceLevel?.toUpperCase();
+  const typeFilter  = rawType  && Object.values(JobType).includes(rawType as JobType)
     ? (rawType as JobType) : undefined;
+  const levelFilter = rawLevel && Object.values(ExperienceLevel).includes(rawLevel as ExperienceLevel)
+    ? (rawLevel as ExperienceLevel) : undefined;
   const salaryMin = searchParams.salaryMin ? Number(searchParams.salaryMin) : undefined;
   const salaryMax = searchParams.salaryMax ? Number(searchParams.salaryMax) : undefined;
 
   const where = {
     status: JobStatus.ACTIVE,
-    ...(q        && { title:    { contains: q,        mode: 'insensitive' as const } }),
-    ...(location && { location: { contains: location, mode: 'insensitive' as const } }),
-    ...(typeFilter && { type: typeFilter }),
-    ...(salaryMin  && { salaryMin: { gte: salaryMin } }),
-    ...(salaryMax  && { salaryMax: { lte: salaryMax } }),
+    ...(q           && { title:           { contains: q,        mode: 'insensitive' as const } }),
+    ...(location    && { location:         { contains: location, mode: 'insensitive' as const } }),
+    ...(typeFilter  && { type: typeFilter }),
+    ...(levelFilter && { experienceLevel: levelFilter }),
+    ...(salaryMin   && { salaryMin: { gte: salaryMin } }),
+    ...(salaryMax   && { salaryMax: { lte: salaryMax } }),
   };
+
+  const orderBy =
+    sort === 'trending'    ? { viewCount: 'desc' as const } :
+    sort === 'salary_desc' ? { salaryMax: 'desc' as const } :
+    sort === 'salary_asc'  ? { salaryMin: 'asc'  as const } :
+                             { createdAt: 'desc' as const };
 
   // Fetch jobs + optional candidate skills for match scores in parallel
   // Auth/resume fetch is wrapped so a DB hiccup never crashes the whole page
@@ -108,7 +128,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
     prisma.job.findMany({
       where,
       include: { company: { select: { id: true, name: true, industry: true } } },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -183,6 +203,35 @@ export default async function JobsPage({ searchParams }: PageProps) {
 
           {/* Job cards */}
           <div className="flex-1 min-w-0">
+            {/* Sort bar */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {total.toLocaleString()} result{total !== 1 ? 's' : ''}
+              </p>
+              <div className="flex gap-1.5">
+                {SORT_OPTIONS.map(opt => {
+                  const params = new URLSearchParams(
+                    Object.entries(searchParams).filter(([, v]) => v !== undefined) as [string, string][]
+                  );
+                  params.set('sort', opt.value);
+                  params.delete('page');
+                  return (
+                    <a
+                      key={opt.value}
+                      href={`/jobs?${params.toString()}`}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        sort === opt.value
+                          ? 'border-primary bg-primary text-white'
+                          : 'border-border bg-white text-muted-foreground hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      {opt.label}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
             {jobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-white py-20 text-center">
                 <Briefcase className="mx-auto h-10 w-10 text-muted-foreground/40" />
@@ -214,6 +263,11 @@ export default async function JobsPage({ searchParams }: PageProps) {
                             <span className={cn('rounded-full border px-2.5 py-0.5 text-xs font-medium', TYPE_STYLES[job.type])}>
                               {TYPE_LABELS[job.type]}
                             </span>
+                            {job.viewCount >= 10 && (
+                              <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-600">
+                                🔥 Trending
+                              </span>
+                            )}
                             {matchScore !== null && (
                               <span className={cn(
                                 'rounded-full px-2 py-0.5 text-xs font-semibold',

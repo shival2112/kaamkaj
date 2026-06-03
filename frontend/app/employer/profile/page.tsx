@@ -1,87 +1,180 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Building2, Globe, Users, FileText, Loader2, CheckCircle2 } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
-import { useEmployerStore } from '@/store/employerStore';
+
+const INDUSTRIES = [
+  'Software & IT Services', 'Banking & Finance', 'Healthcare', 'Education',
+  'Retail & E-commerce', 'Manufacturing', 'Consulting', 'Media & Entertainment',
+  'Real Estate', 'Logistics', 'Other',
+];
+const SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
+
+interface Company {
+  id?: string; name: string; industry: string | null;
+  size: string | null; website: string | null; description: string | null;
+  isVerified?: boolean;
+}
 
 export default function CompanyProfilePage() {
-  const { employer, updateEmployer } = useEmployerStore();
+  const [company,  setCompany]  = useState<Company | null>(null);
+  const [fetching, setFetching] = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [success,  setSuccess]  = useState(false);
+  const [error,    setError]    = useState('');
 
-  const [name,     setName]     = useState(employer.name);
-  const [industry, setIndustry] = useState(employer.industry);
-  const [location, setLocation] = useState(employer.location);
-  const [website,  setWebsite]  = useState(employer.website);
-  const [about,    setAbout]    = useState(employer.about);
-  const [toast,    setToast]    = useState(false);
+  // Form state
+  const [name,        setName]        = useState('');
+  const [industry,    setIndustry]    = useState('');
+  const [size,        setSize]        = useState('');
+  const [website,     setWebsite]     = useState('');
+  const [description, setDescription] = useState('');
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetch('/api/employer/company')
+      .then(r => r.json())
+      .then((d: { company?: Company | null }) => {
+        const c = d.company;
+        if (c) {
+          setCompany(c);
+          setName(c.name ?? '');
+          setIndustry(c.industry ?? '');
+          setSize(c.size ?? '');
+          setWebsite(c.website ?? '');
+          setDescription(c.description ?? '');
+        }
+      })
+      .finally(() => setFetching(false));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateEmployer({ name, industry, location, website, about });
-    setToast(true);
-    setTimeout(() => setToast(false), 2500);
+    setError(''); setSuccess(false);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/employer/company', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, industry, size, website, description }),
+      });
+      const data = await res.json() as { company?: Company; error?: string };
+      if (!res.ok) { setError(data.error ?? 'Failed to save.'); return; }
+      setCompany(data.company ?? null);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const inputCls = 'w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-[#6B46C1] focus:outline-none focus:ring-2 focus:ring-[#6B46C1]/20';
+  const inputCls = 'w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#6B46C1] focus:outline-none focus:ring-2 focus:ring-[#6B46C1]/20';
   const labelCls = 'mb-1.5 block text-xs font-semibold text-gray-600';
 
   return (
     <EmployerShell>
       <div className="mx-auto max-w-2xl p-6 lg:p-8">
-        <h1 className="text-2xl font-extrabold text-gray-900">Company Profile</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Update your company information visible to candidates.
-        </p>
-
-        {toast && (
-          <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-            ✓ Profile updated successfully!
-          </div>
-        )}
-
-        {/* Avatar */}
-        <div className="mt-6 flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#6B46C1] text-2xl font-extrabold text-white">
-            {employer.initials}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
+            <Building2 className="h-5 w-5 text-[#6B46C1]" />
           </div>
           <div>
-            <p className="font-bold text-gray-900">{employer.name}</p>
-            <p className="text-xs text-gray-500">{employer.industry} · {employer.location}</p>
+            <h1 className="text-xl font-extrabold text-gray-900">Company Profile</h1>
+            <p className="text-xs text-gray-500">Visible to candidates on your job listings</p>
           </div>
+          {company?.isVerified && (
+            <span className="ml-auto flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Verified
+            </span>
+          )}
         </div>
 
-        <form onSubmit={handleSave} className="mt-5 space-y-5">
-          <div className="rounded-xl bg-white p-6 shadow-sm space-y-5">
+        {fetching ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#6B46C1] border-t-transparent" />
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-5">
+            {success && (
+              <div className="rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+                ✓ Company profile saved successfully!
+              </div>
+            )}
+            {error && (
+              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+            )}
+
+            {/* Company name */}
             <div>
-              <label className={labelCls}>Company Name *</label>
-              <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+              <label className={labelCls}>
+                <Building2 className="mr-1.5 inline h-3.5 w-3.5" />
+                Company Name *
+              </label>
+              <input
+                required value={name} onChange={e => setName(e.target.value)}
+                placeholder="e.g. Acme Technologies Pvt. Ltd."
+                className={inputCls}
+              />
             </div>
+
+            {/* Industry + Size */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Industry</label>
-                <input value={industry} onChange={(e) => setIndustry(e.target.value)} className={inputCls} />
+                <select value={industry} onChange={e => setIndustry(e.target.value)} className={inputCls}>
+                  <option value="">Select industry</option>
+                  {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
               </div>
               <div>
-                <label className={labelCls}>Location</label>
-                <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputCls} />
+                <label className={labelCls}>
+                  <Users className="mr-1.5 inline h-3.5 w-3.5" />
+                  Company Size
+                </label>
+                <select value={size} onChange={e => setSize(e.target.value)} className={inputCls}>
+                  <option value="">Select size</option>
+                  {SIZES.map(s => <option key={s} value={s}>{s} employees</option>)}
+                </select>
               </div>
             </div>
-            <div>
-              <label className={labelCls}>Website</label>
-              <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="company.demo" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>About</label>
-              <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={4}
-                placeholder="Describe your company…"
-                className={`${inputCls} resize-none`} />
-            </div>
-          </div>
 
-          <button type="submit"
-            className="w-full rounded-xl bg-[#6B46C1] py-3 text-sm font-bold text-white hover:bg-purple-700">
-            Save Profile
-          </button>
-        </form>
+            {/* Website */}
+            <div>
+              <label className={labelCls}>
+                <Globe className="mr-1.5 inline h-3.5 w-3.5" />
+                Website
+              </label>
+              <input
+                type="url" value={website} onChange={e => setWebsite(e.target.value)}
+                placeholder="https://yourcompany.com"
+                className={inputCls}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className={labelCls}>
+                <FileText className="mr-1.5 inline h-3.5 w-3.5" />
+                About the Company
+              </label>
+              <textarea
+                value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="Describe your company culture, mission, and what makes it a great place to work…"
+                rows={5} maxLength={1000}
+                className={`${inputCls} resize-none`}
+              />
+              <p className="mt-1 text-right text-xs text-gray-400">{description.length}/1000</p>
+            </div>
+
+            <button
+              type="submit" disabled={saving}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#6B46C1] py-3 text-sm font-bold text-white hover:bg-purple-700 disabled:opacity-60 transition-colors"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {saving ? 'Saving…' : 'Save Company Profile'}
+            </button>
+          </form>
+        )}
       </div>
     </EmployerShell>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { DarkModeToggle } from '@/components/layout/DarkModeToggle';
 import { useRouter } from 'next/navigation';
 import {
   Menu,
@@ -28,6 +29,7 @@ interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { href: '/jobs', label: 'Jobs', isNew: false, hasChevron: true },
+  { href: '/companies', label: 'Companies', isNew: false },
   { href: '/job-prep', label: 'Job Prep', isNew: true },
   { href: '/contests', label: 'Contests', isNew: true },
   { href: '/degree', label: 'Degree', isNew: true },
@@ -245,6 +247,11 @@ export function Navbar() {
               </button>
             </>
           )}
+        </div>
+
+        {/* Dark mode toggle — visible on desktop */}
+        <div className="hidden md:block">
+          <DarkModeToggle />
         </div>
 
         {/* Mobile Hamburger */}

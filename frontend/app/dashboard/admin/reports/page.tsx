@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   FileBarChart, Users, Briefcase, ClipboardList,
-  TrendingUp, CheckCircle2, XCircle,
+  TrendingUp, CheckCircle2, XCircle, Download,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -114,6 +114,28 @@ export default function AdminReportsPage() {
                 <MetricCard label="Avg. Applications / Job" value={avgAppsPerJob}
                   sub="Across all listings" icon={<TrendingUp className="h-5 w-5" />}
                   iconBg="bg-blue-50" iconColor="text-blue-600" />
+              </div>
+            </section>
+
+            <section>
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Exports</h2>
+              <div className="flex flex-wrap gap-3">
+                {([
+                  { type: 'users',        label: 'Users CSV',        icon: <Users className="h-4 w-4" />,        color: 'border-blue-200 text-blue-700 hover:bg-blue-50' },
+                  { type: 'jobs',         label: 'Jobs CSV',         icon: <Briefcase className="h-4 w-4" />,    color: 'border-violet-200 text-violet-700 hover:bg-violet-50' },
+                  { type: 'applications', label: 'Applications CSV', icon: <ClipboardList className="h-4 w-4" />, color: 'border-orange-200 text-orange-700 hover:bg-orange-50' },
+                ] as const).map(({ type, label, icon, color }) => (
+                  <a
+                    key={type}
+                    href={`/api/admin/export?type=${type}`}
+                    download
+                    className={`flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors ${color}`}
+                  >
+                    {icon}
+                    <Download className="h-3.5 w-3.5" />
+                    {label}
+                  </a>
+                ))}
               </div>
             </section>
 

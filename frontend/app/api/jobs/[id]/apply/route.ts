@@ -9,7 +9,7 @@ import { newApplicantAlertHtml } from '@/lib/emailTemplates/newApplicantAlert';
 export const dynamic = 'force-dynamic';
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -97,6 +97,28 @@ export async function POST(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
+    // ── Daily rate limit: max 10 applications per 24 h ───────────────────────
+    const DAILY_LIMIT = 10;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const todayCount = await prisma.application.count({
+      where: { candidateId, appliedAt: { gte: since } },
+    });
+    if (todayCount >= DAILY_LIMIT) {
+      const oldest = await prisma.application.findFirst({
+        where: { candidateId, appliedAt: { gte: since } },
+        orderBy: { appliedAt: 'asc' },
+        select: { appliedAt: true },
+      });
+      const resetAt = oldest
+        ? new Date(oldest.appliedAt.getTime() + 24 * 60 * 60 * 1000)
+        : new Date(Date.now() + 60 * 60 * 1000);
+      const hours = Math.ceil((resetAt.getTime() - Date.now()) / 3600000);
+      return NextResponse.json(
+        { error: `Daily application limit reached (${DAILY_LIMIT}/day). Try again in ${hours}h.`, code: 'RATE_LIMITED', resetAt },
+        { status: 429 }
+      );
+    }
+
     // ── Duplicate check ────────────────────────────────────────────────────────
     const existing = await prisma.application.findUnique({
       where: { jobId_candidateId: { jobId: params.id, candidateId } },
@@ -107,8 +129,11 @@ export async function POST(
     }
 
     // ── Create application ─────────────────────────────────────────────────────
+    const body = await request.json().catch(() => ({})) as { coverLetter?: string };
+    const coverLetter = body.coverLetter?.trim() || undefined;
+
     const application = await prisma.application.create({
-      data: { jobId: params.id, candidateId },
+      data: { jobId: params.id, candidateId, ...(coverLetter && { coverLetter }) },
     });
     console.log('[apply] created application', application.id, '| job:', params.id, '| candidate:', candidateId);
 

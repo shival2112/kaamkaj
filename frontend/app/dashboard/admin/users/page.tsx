@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Trash2, ShieldOff, ShieldCheck, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 
@@ -32,8 +33,10 @@ export default function AdminUsersPage() {
   const [loading,    setLoading]    = useState(true);
   const [q,          setQ]          = useState('');
   const [page,       setPage]       = useState(1);
-  const [actionMap,  setActionMap]  = useState<Record<string, boolean>>({});
-  const [deleteMap,  setDeleteMap]  = useState<Record<string, boolean>>({});
+  const [actionMap,   setActionMap]   = useState<Record<string, boolean>>({});
+  const [deleteMap,   setDeleteMap]   = useState<Record<string, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -82,6 +85,46 @@ export default function AdminUsersPage() {
     load();
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectableUsers = users.filter(u => u.role !== 'ADMIN');
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === selectableUsers.length && selectableUsers.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableUsers.map(u => u.id)));
+    }
+  };
+
+  const handleBulkAction = async (action: 'suspend' | 'restore') => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          fetch(`/api/admin/users/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+          }),
+        ),
+      );
+      setUsers(prev => prev.map(u =>
+        selectedIds.has(u.id) ? { ...u, isVerified: action === 'restore' } : u,
+      ));
+      setSelectedIds(new Set());
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const toggleUser = async (id: string, currentlyVerified: boolean) => {
     setActionMap(prev => ({ ...prev, [id]: true }));
     const action = currentlyVerified ? 'suspend' : 'restore';
@@ -119,11 +162,47 @@ export default function AdminUsersPage() {
             Search
           </button>
         </form>
+        <a
+          href="/api/admin/export?type=users"
+          download
+          className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </a>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">
+              {selectedIds.size} user{selectedIds.size !== 1 ? 's' : ''} selected
+            </span>
+            <button onClick={() => handleBulkAction('suspend')} disabled={bulkLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50">
+              {bulkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldOff className="h-3.5 w-3.5" />}
+              Suspend all
+            </button>
+            <button onClick={() => handleBulkAction('restore')} disabled={bulkLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50">
+              {bulkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+              Restore all
+            </button>
+            <button onClick={() => setSelectedIds(new Set())}
+              className="ml-auto text-xs text-muted-foreground hover:text-foreground">
+              Clear selection
+            </button>
+          </div>
+        )}
+
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
+          <div className="grid grid-cols-[auto_2fr_2fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
+            <input type="checkbox"
+              checked={selectableUsers.length > 0 && selectedIds.size === selectableUsers.length}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 accent-primary cursor-pointer"
+              title="Select all"
+            />
             {(['USER', 'EMAIL', 'ROLE', 'APPS', 'STATUS', 'ACTIONS'] as const).map(col => (
               <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
             ))}
@@ -141,13 +220,22 @@ export default function AdminUsersPage() {
             </div>
           ) : users.map(u => (
             <div key={u.id}
-              className="grid grid-cols-[2fr_2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+              className="grid grid-cols-[auto_2fr_2fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+              <input type="checkbox"
+                checked={selectedIds.has(u.id)}
+                onChange={() => u.role !== 'ADMIN' && toggleSelect(u.id)}
+                disabled={u.role === 'ADMIN'}
+                className="h-4 w-4 accent-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+              />
               <div className="flex items-center gap-3">
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(u.name)}`}>
                   {u.name[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">{u.name}</p>
+                  <Link href={`/dashboard/admin/users/${u.id}`}
+                    className="truncate text-sm font-semibold text-foreground hover:text-primary hover:underline">
+                    {u.name}
+                  </Link>
                   <p className="text-[10px] text-muted-foreground">
                     {new Date(u.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>

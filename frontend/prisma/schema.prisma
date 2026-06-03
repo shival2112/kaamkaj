@@ -110,6 +110,7 @@ model Job {
   vacancies       Int             @default(1)
   skills          String[]        @default([])
   expiresAt       DateTime?       @map("expires_at")
+  viewCount       Int             @default(0) @map("view_count")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
@@ -127,24 +128,40 @@ model Job {
 }
 
 model Application {
-  id          String            @id @default(uuid())
-  jobId       String            @map("job_id")
-  candidateId String            @map("candidate_id")
-  status      ApplicationStatus @default(APPLIED)
-  resumeUrl   String?           @map("resume_url")
-  coverLetter String?           @map("cover_letter")
-  appliedAt   DateTime          @default(now()) @map("applied_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  id            String            @id @default(uuid())
+  jobId         String            @map("job_id")
+  candidateId   String            @map("candidate_id")
+  status        ApplicationStatus @default(APPLIED)
+  resumeUrl     String?           @map("resume_url")
+  coverLetter   String?           @map("cover_letter")
+  employerNotes String?           @map("employer_notes")
+  rating        Int?              // 1–5 employer rating after interview
+  appliedAt     DateTime          @default(now()) @map("applied_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   // Relations
-  job       Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  candidate User @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job        Job                    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate  User                   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  statusLogs ApplicationStatusLog[]
 
   // One application per candidate per job
   @@unique([jobId, candidateId])
   @@index([candidateId])
   @@index([jobId])
   @@map("applications")
+}
+
+model ApplicationStatusLog {
+  id            String            @id @default(uuid())
+  applicationId String            @map("application_id")
+  status        ApplicationStatus
+  changedAt     DateTime          @default(now()) @map("changed_at")
+  changedBy     String            @map("changed_by")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_status_logs")
 }
 
 model SavedJob {

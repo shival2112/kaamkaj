@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Phone, CheckCircle2, Loader2, Camera } from 'lucide-react';
+import { User, Mail, Phone, CheckCircle2, Loader2, Camera, ExternalLink, Bell } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
@@ -35,12 +36,34 @@ export default function ProfilePage() {
   const [success,  setSuccess]  = useState(false);
   const [error,    setError]    = useState('');
 
+  interface NotifPrefs { emailOnStatusChange: boolean; emailOnInterview: boolean; emailOnNewJobs: boolean }
+  const [notifPrefs,       setNotifPrefs]       = useState<NotifPrefs>({ emailOnStatusChange: true, emailOnInterview: true, emailOnNewJobs: false });
+  const [savingPrefs,      setSavingPrefs]      = useState(false);
+  const [prefsSaved,       setPrefsSaved]       = useState(false);
+
   useEffect(() => {
     if (!user) return;
     fetch('/api/candidate/profile')
       .then(r => r.json())
       .then((p: Profile) => { setProfile(p); setName(p.name ?? ''); setPhone(p.phone ?? ''); });
+    fetch('/api/candidate/notification-prefs')
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { prefs?: NotifPrefs } | null) => { if (d?.prefs) setNotifPrefs(d.prefs); });
   }, [user]);
+
+  const togglePref = useCallback(async (key: keyof NotifPrefs) => {
+    const next = { ...notifPrefs, [key]: !notifPrefs[key] };
+    setNotifPrefs(next);
+    setSavingPrefs(true);
+    await fetch('/api/candidate/notification-prefs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: next[key] }),
+    }).catch(() => {});
+    setSavingPrefs(false);
+    setPrefsSaved(true);
+    setTimeout(() => setPrefsSaved(false), 1500);
+  }, [notifPrefs]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,11 +104,22 @@ export default function ProfilePage() {
       <DashboardSidebar displayName={displayName} role={role} onLogout={handleLogout} />
 
       <div className="flex flex-1 flex-col overflow-hidden bg-gray-50">
-        <header className="flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-6">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
           <div className="flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
             <h1 className="font-semibold text-foreground">My Profile</h1>
           </div>
+          {user && (
+            <Link
+              href={`/profile/${user.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              View Public Profile
+            </Link>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -212,6 +246,45 @@ export default function ProfilePage() {
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </form>
+
+            {/* Notification Preferences */}
+            <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Bell className="h-4 w-4 text-primary" /> Email Notifications
+                </h2>
+                {savingPrefs && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                {prefsSaved && <span className="text-xs text-success">Saved ✓</span>}
+              </div>
+              <div className="mt-4 space-y-3">
+                {([
+                  { key: 'emailOnStatusChange', label: 'Application status updates', desc: 'When your application is shortlisted, rejected, or hired' },
+                  { key: 'emailOnInterview',    label: 'Interview scheduled',         desc: 'When an employer schedules an interview with you' },
+                  { key: 'emailOnNewJobs',      label: 'New job alerts',              desc: 'Weekly digest of new jobs matching your skills' },
+                ] as { key: keyof NotifPrefs; label: string; desc: string }[]).map(({ key, label, desc }) => (
+                  <label key={key} className="flex cursor-pointer items-start gap-3">
+                    <div className="relative mt-0.5 flex-none">
+                      <input
+                        type="checkbox"
+                        checked={notifPrefs[key]}
+                        onChange={() => togglePref(key)}
+                        className="sr-only"
+                      />
+                      <div
+                        onClick={() => togglePref(key)}
+                        className={`flex h-5 w-9 items-center rounded-full transition-colors ${notifPrefs[key] ? 'bg-primary' : 'bg-gray-200'}`}
+                      >
+                        <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${notifPrefs[key] ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
 
           </div>
         </div>

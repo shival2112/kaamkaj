@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Loader2, Eye, EyeOff, Briefcase, User2 } from 'lucide-react';
+import { X, Loader2, Eye, EyeOff, Briefcase, User2, CheckCircle2, Mail } from 'lucide-react';
 import { useModalStore } from '@/store/modalStore';
 import { createSupabaseClient } from '@/lib/supabase';
 
@@ -27,22 +27,32 @@ const GoogleIcon = () => (
 
 // ─── Sign-In Form ─────────────────────────────────────────────────────────────
 
+type SignInStep = 'signin' | 'forgot' | 'sent';
+
 function SignInForm({ role, accent }: { role: 'CANDIDATE' | 'EMPLOYER'; accent: string }) {
   const router = useRouter();
   const { close } = useModalStore();
-  const [email,       setEmail]       = useState('');
-  const [password,    setPassword]    = useState('');
-  const [showPw,      setShowPw]      = useState(false);
-  const [loading,     setLoading]     = useState(false);
-  const [googleLoad,  setGoogleLoad]  = useState(false);
-  const [error,       setError]       = useState('');
+  const accentText = role === 'EMPLOYER' ? 'text-[#6B46C1]' : 'text-[#007a5a]';
+
+  // Sign-in state
+  const [email,      setEmail]      = useState('');
+  const [password,   setPassword]   = useState('');
+  const [showPw,     setShowPw]     = useState(false);
+  const [loading,    setLoading]    = useState(false);
+  const [googleLoad, setGoogleLoad] = useState(false);
+  const [error,      setError]      = useState('');
+
+  // Forgot-password state
+  const [step,         setStep]         = useState<SignInStep>('signin');
+  const [resetEmail,   setResetEmail]   = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError,   setResetError]   = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      // Ensure email is confirmed before attempting sign-in
       await fetch('/api/auth/ensure-confirmed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,6 +96,89 @@ function SignInForm({ role, accent }: { role: 'CANDIDATE' | 'EMPLOYER'; accent: 
     }
   };
 
+  const handleResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetLoading(true);
+    try {
+      const supabase = createSupabaseClient();
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      });
+      if (resetErr) { setResetError(resetErr.message); return; }
+      setStep('sent');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  // ── Forgot: sent state ────────────────────────────────────────────────────
+  if (step === 'sent') {
+    return (
+      <div className="flex flex-col items-center gap-4 py-4 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+          <CheckCircle2 className="h-7 w-7 text-green-600" />
+        </div>
+        <div>
+          <p className="font-semibold text-gray-900">Check your inbox</p>
+          <p className="mt-1 text-sm text-gray-500">
+            We sent a reset link to{' '}
+            <span className="font-medium text-gray-700">{resetEmail}</span>.
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            Didn&apos;t receive it?{' '}
+            <button onClick={() => { setStep('forgot'); setResetError(''); }}
+              className={`${accentText} hover:underline`}>
+              Try again
+            </button>
+          </p>
+        </div>
+        <button onClick={() => { setStep('signin'); setResetEmail(''); setResetError(''); }}
+          className={`text-sm font-semibold ${accentText} hover:underline`}>
+          ← Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  // ── Forgot: email form ────────────────────────────────────────────────────
+  if (step === 'forgot') {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1">
+          <p className="font-semibold text-gray-900">Forgot your password?</p>
+          <p className="text-xs text-gray-500">Enter your email and we&apos;ll send you a reset link.</p>
+        </div>
+
+        <form onSubmit={handleResetRequest} className="space-y-3">
+          {resetError && (
+            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{resetError}</div>
+          )}
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-gray-600">Email address</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input type="email" required value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                placeholder="you@example.com" autoComplete="email"
+                className={`${inputCls()} pl-10`} />
+            </div>
+          </div>
+          <button type="submit" disabled={resetLoading}
+            className={`flex w-full min-h-[46px] items-center justify-center gap-2 rounded-xl font-bold text-white transition disabled:opacity-60 ${accent}`}>
+            {resetLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Send reset link
+          </button>
+        </form>
+
+        <button onClick={() => { setStep('signin'); setResetError(''); }}
+          className={`w-full text-sm font-semibold ${accentText} hover:underline`}>
+          ← Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  // ── Normal sign-in ────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
       {/* Google */}
@@ -113,6 +206,10 @@ function SignInForm({ role, accent }: { role: 'CANDIDATE' | 'EMPLOYER'; accent: 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-xs font-semibold text-gray-600">Password</label>
+            <button type="button" onClick={() => { setStep('forgot'); setResetEmail(email); setResetError(''); }}
+              className={`text-xs font-medium ${accentText} hover:underline`}>
+              Forgot password?
+            </button>
           </div>
           <div className="relative">
             <input type={showPw ? 'text' : 'password'} required value={password}
