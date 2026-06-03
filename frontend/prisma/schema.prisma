@@ -68,10 +68,12 @@ model User {
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  company      Company?
-  applications Application[]
-  savedJobs    SavedJob[]
-  resume       Resume?
+  company         Company?
+  applications    Application[]
+  savedJobs       SavedJob[]
+  resume          Resume?
+  companyReviews  CompanyReview[]
+  jobTemplates    JobTemplate[]
 
   @@map("users")
 }
@@ -90,8 +92,9 @@ model Company {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  owner User  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  jobs  Job[]
+  owner   User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  jobs    Job[]
+  reviews CompanyReview[]
 
   @@map("companies")
 }
@@ -128,16 +131,17 @@ model Job {
 }
 
 model Application {
-  id            String            @id @default(uuid())
-  jobId         String            @map("job_id")
-  candidateId   String            @map("candidate_id")
-  status        ApplicationStatus @default(APPLIED)
-  resumeUrl     String?           @map("resume_url")
-  coverLetter   String?           @map("cover_letter")
-  employerNotes String?           @map("employer_notes")
-  rating        Int?              // 1–5 employer rating after interview
-  appliedAt     DateTime          @default(now()) @map("applied_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
+  id              String            @id @default(uuid())
+  jobId           String            @map("job_id")
+  candidateId     String            @map("candidate_id")
+  status          ApplicationStatus @default(APPLIED)
+  resumeUrl       String?           @map("resume_url")
+  coverLetter     String?           @map("cover_letter")
+  employerNotes   String?           @map("employer_notes")
+  rejectionReason String?           @map("rejection_reason")
+  rating          Int?              // 1–5 employer rating after interview
+  appliedAt       DateTime          @default(now()) @map("applied_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   // Relations
   job        Job                    @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -175,6 +179,37 @@ model SavedJob {
 
   @@id([userId, jobId])
   @@map("saved_jobs")
+}
+
+model CompanyReview {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  candidateId String   @map("candidate_id")
+  rating      Int      // 1–5
+  title       String
+  body        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  candidate User    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, candidateId])
+  @@index([companyId])
+  @@map("company_reviews")
+}
+
+model JobTemplate {
+  id         String   @id @default(uuid())
+  employerId String   @map("employer_id")
+  name       String
+  data       Json
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  employer User @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@index([employerId])
+  @@map("job_templates")
 }
 
 model Resume {

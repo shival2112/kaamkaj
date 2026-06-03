@@ -5,6 +5,33 @@ import { JobStatus, JobType, ExperienceLevel } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
+// ── GET — fetch a single job owned by this employer ──────────────────────────
+export async function GET(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const userId = await resolveEmployerUserId();
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const company = await prisma.company.findUnique({ where: { ownerId: userId } });
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 404 });
+
+    const job = await prisma.job.findUnique({
+      where: { id: params.id },
+      include: { _count: { select: { applications: true } } },
+    });
+    if (!job || job.companyId !== company.id) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(job);
+  } catch (error) {
+    console.error('[GET /api/employer/jobs/[id]]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // ── PATCH — update status OR full job fields ───────────────────────────────────
 export async function PATCH(
   request: Request,

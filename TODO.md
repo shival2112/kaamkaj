@@ -292,6 +292,18 @@
 
 ---
 
+## Phase 23: Communications, Reviews & Smart Search
+- [x] Schema — `rejectionReason String?` on Application; new `CompanyReview` model (one per candidate per company, 1–5 stars + title + body); new `JobTemplate` model; `npx prisma db push` applied + client regenerated
+- [x] F1: Full-text search — `GET /api/jobs?q=` now searches `title OR description OR skills` (via Prisma `OR` with `hasSome`), not just title
+- [x] F2: Job alerts delivery — `POST /api/candidate/alerts/trigger` (protected by `x-trigger-secret` header); matches all candidates' saved alerts against recent jobs; respects `notifPrefs.emailOnNewJobs=false`; sends digest emails via existing mailer; accepts `?hours=N` (default 24, max 168)
+- [x] F3: Rejection reason — `PATCH /api/employer/applications/[id]` accepts `{ rejectionReason }` (set to null to clear); field returned in `GET /api/candidate/applications` automatically (no select override needed)
+- [x] F4: Company reviews — `GET/POST/DELETE /api/companies/[id]/reviews`; one review per candidate per company (upsert); returns `averageRating` + `totalReviews`; candidates only; no phone-bridge emails accepted
+- [x] F5: Job templates — `GET/POST /api/employer/templates` + `GET/PATCH/DELETE /api/employer/templates/[id]`; max 20 per employer; stores arbitrary job-form JSON payload; ownership verified on every write
+- [x] F6: Skills gap API — `GET /api/jobs/[id]/skills-gap`; normalises skill strings before comparison; returns `{ matched, missing, pct, authenticated, totalRequired }`; unauthenticated callers get `{ authenticated: false }` gracefully
+- [x] F7: Employer bulk message — `POST /api/employer/bulk-message`; filters applications by `status` (default `SHORTLISTED`); skips phone-bridge emails; wraps message in branded HTML; returns `{ sent, skipped, recipients, total }`
+
+---
+
 ## Blockers
 *(None currently)*
 

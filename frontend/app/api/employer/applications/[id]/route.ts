@@ -30,10 +30,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Application not found' }, { status: 404 });
     }
 
-    const body = await request.json() as { status?: string; notes?: string; rating?: number };
+    const body = await request.json() as { status?: string; notes?: string; rating?: number; rejectionReason?: string };
 
-    if (!body.status && body.notes === undefined && body.rating === undefined) {
-      return NextResponse.json({ error: 'Provide status, notes, or rating' }, { status: 400 });
+    if (!body.status && body.notes === undefined && body.rating === undefined && body.rejectionReason === undefined) {
+      return NextResponse.json({ error: 'Provide status, notes, rating, or rejectionReason' }, { status: 400 });
     }
 
     if (body.rating !== undefined && (body.rating < 1 || body.rating > 5 || !Number.isInteger(body.rating))) {
@@ -53,6 +53,7 @@ export async function PATCH(
         ...(body.status && { status: body.status as ApplicationStatus }),
         ...(body.notes !== undefined && { employerNotes: body.notes }),
         ...(body.rating !== undefined && { rating: body.rating }),
+        ...(body.rejectionReason !== undefined && { rejectionReason: body.rejectionReason || null }),
       },
     });
 

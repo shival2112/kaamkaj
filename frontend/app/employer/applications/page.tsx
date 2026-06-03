@@ -238,7 +238,7 @@ function StageActions({ app, onUpdated }: { app: Application; onUpdated: (id: st
         {loading ? '…' : 'Update'} <ChevronDown className="h-3 w-3" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 min-w-[120px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[120px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
           {nexts.map(n => (
             <button key={n.value} onClick={() => update(n.value)}
               className={cn('block w-full px-4 py-2 text-left text-xs font-medium transition-colors', n.style)}>
@@ -287,7 +287,7 @@ function NotesEditor({ appId, initialNotes }: { appId: string; initialNotes?: st
         {text ? 'Note ✎' : 'Note'}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Private note (only you can see this)</p>
           <textarea
             value={text}
@@ -432,7 +432,7 @@ function ApplicationsContent() {
           )}
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
           {/* Table header */}
           <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
             {['Candidate', 'Job', 'Stage', 'Applied', 'Action'].map(col => (

@@ -65,10 +65,11 @@ export default function MyListingsPage() {
   // This is the fix for NextAuth employers: AppAuthContext.activeId is null for
   // them, so addJob() is a no-op. We bypass that by storing DB results here
   // and merging them with localJobs for rendering.
-  const [dbJobs,   setDbJobs]   = useState<Job[]>([]);
-  const [dbJobIds, setDbJobIds] = useState<Set<string>>(new Set());
-  const [perfMap,  setPerfMap]  = useState<Map<string, JobPerf>>(new Map());
-  const [fetching, setFetching] = useState(true);
+  const [dbJobs,      setDbJobs]      = useState<Job[]>([]);
+  const [dbJobIds,    setDbJobIds]    = useState<Set<string>>(new Set());
+  const [perfMap,     setPerfMap]     = useState<Map<string, JobPerf>>(new Map());
+  const [fetching,    setFetching]    = useState(true);
+  const [duplicating, setDuplicating] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/employer/jobs')
@@ -112,17 +113,69 @@ export default function MyListingsPage() {
   const applicantCount = (jobId: string) =>
     candidates.filter((c) => c.jobId === jobId).length;
 
-  const duplicate = (jobId: string) => {
+  const duplicate = async (jobId: string) => {
     const job = mergedJobs.find((j) => j.id === jobId);
-    if (!job) return;
-    addJob({
-      ...job,
-      id: `j${Date.now()}`,
-      title: `${job.title} (Copy)`,
-      status: 'paused',
-      views: 0,
-      postedDate: new Date().toISOString().slice(0, 10),
-    });
+    if (!job || duplicating.has(jobId)) return;
+
+    // Local-only (demo/phone-OTP) jobs — fall back to Zustand store
+    if (!dbJobIds.has(jobId)) {
+      addJob({
+        ...job,
+        id: `j${Date.now()}`,
+        title: `${job.title} (Copy)`,
+        status: 'paused',
+        views: 0,
+        postedDate: new Date().toISOString().slice(0, 10),
+      });
+      return;
+    }
+
+    // DB job — fetch full data then POST a real copy
+    setDuplicating(prev => new Set(prev).add(jobId));
+    try {
+      // Fetch the full job (gets DB enums + salary, not just display values)
+      const getRes = await fetch(`/api/employer/jobs/${jobId}`);
+      if (!getRes.ok) throw new Error('Could not fetch job');
+      const original = await getRes.json() as DbApiJob & {
+        type: string; experienceLevel: string;
+        salaryMin?: number | null; salaryMax?: number | null;
+      };
+
+      const postRes = await fetch('/api/employer/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title:           `${original.title} (Copy)`,
+          description:     original.description,
+          location:        original.location,
+          type:            original.type,
+          experienceLevel: original.experienceLevel,
+          vacancies:       original.vacancies,
+          skills:          original.skills,
+          salaryMin:       original.salaryMin ?? undefined,
+          salaryMax:       original.salaryMax ?? undefined,
+        }),
+      });
+
+      if (!postRes.ok) {
+        const err = await postRes.json() as { error?: string };
+        console.error('[duplicate] POST failed:', err.error);
+        return;
+      }
+
+      const created = await postRes.json() as DbApiJob;
+      const localCopy = dbJobToLocal({ ...created, totalApplicants: 0, applicantsThisWeek: 0, viewCount: 0 });
+
+      // Optimistically insert at top of list
+      setDbJobs(prev => [localCopy, ...prev]);
+      setDbJobIds(prev => { const s = new Set(prev); s.add(created.id); return s; });
+      setPerfMap(prev => new Map(prev).set(created.id, { total: 0, thisWeek: 0, views: 0 }));
+      console.log('[duplicate] created copy', created.id, 'from', jobId);
+    } catch (err) {
+      console.error('[duplicate] error:', err);
+    } finally {
+      setDuplicating(prev => { const s = new Set(prev); s.delete(jobId); return s; });
+    }
   };
 
   const handleToggleStatus = async (jobId: string, currentStatus: JobStatus) => {
@@ -270,11 +323,15 @@ export default function MyListingsPage() {
                   </button>
                   <Link href={`/employer/applications?jobId=${job.id}`}
                     className="flex items-center gap-1.5 rounded-lg bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100">
-                    <Eye className="h-3.5 w-3.5" /> Applicants ({applicantCount(job.id)})
+                    <Eye className="h-3.5 w-3.5" /> Applicants ({perfMap.get(job.id)?.total ?? applicantCount(job.id)})
                   </Link>
-                  <button onClick={() => duplicate(job.id)}
-                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-gray-300">
-                    <Copy className="h-3.5 w-3.5" /> Duplicate
+                  <button
+                    onClick={() => duplicate(job.id)}
+                    disabled={duplicating.has(job.id)}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-gray-300 disabled:opacity-50"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    {duplicating.has(job.id) ? 'Duplicating…' : 'Duplicate'}
                   </button>
                   <button
                     onClick={() => handleDelete(job.id)}

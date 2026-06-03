@@ -31,7 +31,13 @@ export async function GET(request: Request) {
 
     const where = {
       status: JobStatus.ACTIVE,
-      ...(q           && { title:           { contains: q,        mode: 'insensitive' as const } }),
+      ...(q && {
+        OR: [
+          { title:       { contains: q, mode: 'insensitive' as const } },
+          { description: { contains: q, mode: 'insensitive' as const } },
+          { skills:      { hasSome: [q] } },
+        ],
+      }),
       ...(location    && { location:         { contains: location, mode: 'insensitive' as const } }),
       ...(typeFilter  && { type: typeFilter }),
       ...(levelFilter && { experienceLevel: levelFilter }),
