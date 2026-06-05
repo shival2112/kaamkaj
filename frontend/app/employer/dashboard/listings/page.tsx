@@ -184,6 +184,10 @@ export default function ListingsPage() {
                       className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
                       <ExternalLink className="h-3 w-3" /> View
                     </Link>
+                    <Link href={`/employer/jobs/${job.id}/edit`}
+                      className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
+                      Edit
+                    </Link>
                     <Link href={`/employer/dashboard/applications?jobId=${job.id}`}
                       className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
                       Applicants

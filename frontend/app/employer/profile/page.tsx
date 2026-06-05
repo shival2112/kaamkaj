@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Globe, Users, FileText, Loader2, CheckCircle2 } from 'lucide-react';
+import { Building2, Globe, Users, FileText, Loader2, CheckCircle2, Trash2 } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
+import { useRouter } from 'next/navigation';
 
 const INDUSTRIES = [
   'Software & IT Services', 'Banking & Finance', 'Healthcare', 'Education',
@@ -175,7 +176,32 @@ export default function CompanyProfilePage() {
             </button>
           </form>
         )}
+
+        {/* Danger Zone */}
+        <div className="mt-8 rounded-xl border border-red-200 bg-white p-6">
+          <h2 className="mb-1 text-sm font-semibold text-red-600">Danger Zone</h2>
+          <p className="mb-4 text-xs text-gray-500">Permanently delete your employer account and all associated jobs. This cannot be undone.</p>
+          <DeleteAccountButton />
+        </div>
       </div>
     </EmployerShell>
+  );
+}
+
+function DeleteAccountButton() {
+  const router = useRouter();
+  return (
+    <button
+      onClick={async () => {
+        if (!confirm('Delete your employer account and all jobs? This cannot be undone.')) return;
+        const res = await fetch('/api/candidate/account', { method: 'DELETE' });
+        if (res.ok) { router.push('/'); }
+        else { const d = await res.json() as { error?: string }; alert(d.error ?? 'Failed.'); }
+      }}
+      className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+    >
+      <Trash2 className="h-4 w-4" />
+      Delete Employer Account
+    </button>
   );
 }

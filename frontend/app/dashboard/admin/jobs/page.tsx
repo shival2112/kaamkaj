@@ -9,9 +9,18 @@ import { useAuthStore } from '@/store/authStore';
 interface JobRow {
   id: string; title: string; location: string; type: string;
   status: string; createdAt: string; viewCount?: number;
-  company: { name: string };
+  experienceLevel: string;
+  company: { name: string; industry?: string | null };
   _count: { applications: number };
 }
+
+const TYPE_LABELS: Record<string, string> = {
+  FULL_TIME: 'Full Time', PART_TIME: 'Part Time',
+  REMOTE: 'Remote', CONTRACT: 'Contract', INTERNSHIP: 'Internship',
+};
+const EXP_LABELS: Record<string, string> = {
+  FRESHER: 'Fresher', JUNIOR: '1–3 yrs', MID: '3–6 yrs', SENIOR: '6–10 yrs', LEAD: '10+',
+};
 
 const TILE_COLORS = ['bg-blue-500','bg-violet-500','bg-green-600','bg-orange-500','bg-pink-500','bg-indigo-500','bg-teal-500'];
 function tileColor(name: string) {
@@ -35,6 +44,8 @@ export default function AdminJobsPage() {
   const [loading,    setLoading]    = useState(true);
   const [q,          setQ]          = useState('');
   const [page,       setPage]       = useState(1);
+  const [typeFilter,  setTypeFilter]  = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [actionMap,   setActionMap]   = useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -52,6 +63,8 @@ export default function AdminJobsPage() {
     setLoading(true);
     const params = new URLSearchParams();
     if (q) params.set('q', q);
+    if (typeFilter) params.set('type', typeFilter);
+    if (statusFilter) params.set('status', statusFilter);
     params.set('page', String(page));
     fetch(`/api/admin/jobs?${params}`)
       .then(r => r.json())
@@ -62,7 +75,7 @@ export default function AdminJobsPage() {
         setTotalPages(data.totalPages ?? 1);
       })
       .finally(() => setLoading(false));
-  }, [user, q, page]);
+  }, [user, q, page, typeFilter, statusFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -71,7 +84,7 @@ export default function AdminJobsPage() {
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -119,31 +132,58 @@ export default function AdminJobsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-2">
-          <Briefcase className="h-5 w-5 text-primary" />
-          <h1 className="font-semibold text-foreground">Jobs</h1>
-          {!loading && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{total}</span>}
-        </div>
-        <form onSubmit={handleSearch} className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search title, company, location…"
-              className="w-56 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+      <header className="shrink-0 border-b border-gray-200 bg-white px-6 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-primary" />
+            <h1 className="font-semibold text-foreground">Jobs</h1>
+            {!loading && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{total}</span>}
           </div>
-          <button type="submit"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors">
-            Search
-          </button>
-        </form>
-        <a
-          href="/api/admin/export?type=jobs"
-          download
-          className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-        >
-          <Download className="h-4 w-4" /> Export CSV
-        </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <form onSubmit={handleSearch} className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <input value={q} onChange={e => setQ(e.target.value)}
+                  placeholder="Search title, company…"
+                  className="w-44 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
+              </div>
+              <button type="submit"
+                className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 transition-colors">
+                Search
+              </button>
+            </form>
+            <select
+              value={typeFilter}
+              onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-foreground focus:outline-none"
+            >
+              <option value="">All Types</option>
+              <option value="FULL_TIME">Full Time</option>
+              <option value="PART_TIME">Part Time</option>
+              <option value="REMOTE">Remote</option>
+              <option value="CONTRACT">Contract</option>
+              <option value="INTERNSHIP">Internship</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-foreground focus:outline-none"
+            >
+              <option value="">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="CLOSED">Closed</option>
+              <option value="DRAFT">Draft</option>
+              <option value="EXPIRED">Expired</option>
+            </select>
+            <a
+              href="/api/admin/export?type=jobs"
+              download
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </a>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -171,14 +211,14 @@ export default function AdminJobsPage() {
         )}
 
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="grid grid-cols-[auto_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
+          <div className="grid grid-cols-[auto_2fr_1.2fr_1fr_0.8fr_1fr_0.8fr_1fr_auto] gap-3 border-b border-gray-100 px-6 py-3">
             <input type="checkbox"
               checked={jobs.length > 0 && selectedIds.size === jobs.length}
               onChange={toggleSelectAll}
               className="h-4 w-4 accent-primary cursor-pointer"
               title="Select all"
             />
-            {(['JOB TITLE', 'COMPANY', 'VIEWS', 'APPS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
+            {(['JOB TITLE', 'COMPANY', 'TYPE', 'VIEWS', 'APPS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
               <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
             ))}
           </div>
@@ -195,7 +235,7 @@ export default function AdminJobsPage() {
             </div>
           ) : jobs.map(job => (
             <div key={job.id}
-              className="grid grid-cols-[auto_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+              className="grid grid-cols-[auto_2fr_1.2fr_1fr_0.8fr_1fr_0.8fr_1fr_auto] items-center gap-3 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
               <input type="checkbox"
                 checked={selectedIds.has(job.id)}
                 onChange={() => toggleSelect(job.id)}
@@ -210,7 +250,18 @@ export default function AdminJobsPage() {
                   <p className="truncate text-[10px] text-muted-foreground">{job.location}</p>
                 </div>
               </div>
-              <p className="truncate text-sm text-muted-foreground">{job.company.name}</p>
+              <div className="min-w-0">
+                <p className="truncate text-sm text-muted-foreground">{job.company.name}</p>
+                {job.company.industry && (
+                  <p className="truncate text-[10px] text-muted-foreground/60">{job.company.industry}</p>
+                )}
+              </div>
+              <div>
+                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {TYPE_LABELS[job.type] ?? job.type}
+                </span>
+                <p className="mt-0.5 text-[10px] text-muted-foreground/60">{EXP_LABELS[job.experienceLevel] ?? job.experienceLevel}</p>
+              </div>
               <p className="text-sm font-medium text-foreground">{job.viewCount ?? 0}</p>
               <p className="text-sm font-medium text-foreground">{job._count.applications}</p>
               <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', STATUS_STYLES[job.status] ?? 'bg-gray-100 text-gray-500')}>

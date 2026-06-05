@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { Role } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,15 +60,48 @@ export async function PATCH(
       return NextResponse.json({ error: 'Cannot modify your own account' }, { status: 400 });
     }
 
-    const body = await request.json() as { action: 'suspend' | 'restore' };
-    if (body.action !== 'suspend' && body.action !== 'restore') {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-    }
+    const body = await request.json() as {
+      action: 'suspend' | 'restore' | 'changeRole' | 'sendPasswordReset';
+      role?: string;
+    };
 
     const target = await prisma.user.findUnique({ where: { id: params.id } });
     if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    // Prevent suspending other admins
+    // ── Change Role ────────────────────────────────────────────────────────────
+    if (body.action === 'changeRole') {
+      const validRoles: string[] = ['CANDIDATE', 'EMPLOYER'];
+      if (!body.role || !validRoles.includes(body.role)) {
+        return NextResponse.json({ error: 'Invalid role. Must be CANDIDATE or EMPLOYER.' }, { status: 400 });
+      }
+      if (target.role === 'ADMIN') {
+        return NextResponse.json({ error: 'Cannot change an admin account role' }, { status: 400 });
+      }
+      const updated = await prisma.user.update({
+        where: { id: params.id },
+        data:  { role: body.role as Role },
+        select: { id: true, role: true },
+      });
+      return NextResponse.json(updated);
+    }
+
+    // ── Send Password Reset ────────────────────────────────────────────────────
+    if (body.action === 'sendPasswordReset') {
+      if (target.email.includes('@phone.kaamkaaj.internal')) {
+        return NextResponse.json({ error: 'Phone-auth users cannot receive password reset emails' }, { status: 400 });
+      }
+      const { error } = await supabaseAdmin.auth.resetPasswordForEmail(target.email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/update-password`,
+      });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ── Suspend / Restore ──────────────────────────────────────────────────────
+    if (body.action !== 'suspend' && body.action !== 'restore') {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    }
+
     if (target.role === 'ADMIN' && body.action === 'suspend') {
       return NextResponse.json({ error: 'Cannot suspend an admin account' }, { status: 400 });
     }

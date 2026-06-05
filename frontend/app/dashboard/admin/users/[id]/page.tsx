@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ChevronLeft, User, Briefcase, FileText, Mail, Phone, Calendar } from 'lucide-react';
+import { ChevronLeft, User, Briefcase, FileText, Mail, Phone, Calendar, ShieldAlert, KeyRound, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,9 +47,11 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [user,    setUser]    = useState<UserDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [user,       setUser]       = useState<UserDetail | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMsg,  setActionMsg]  = useState('');
 
   useEffect(() => {
     fetch(`/api/admin/users/${id}`)
@@ -74,6 +76,31 @@ export default function AdminUserDetailPage() {
 
   const parsedSkills = (user.resume?.parsedData as { skills?: string[] } | null)?.skills ?? [];
   const joined = new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const changeRole = async (newRole: string) => {
+    if (!confirm(`Change ${user.name}'s role to ${newRole}?`)) return;
+    setActionBusy(true); setActionMsg('');
+    const res = await fetch(`/api/admin/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'changeRole', role: newRole }),
+    });
+    if (res.ok) { setUser(u => u ? { ...u, role: newRole } : u); setActionMsg('Role updated.'); }
+    else { const d = await res.json() as { error?: string }; setActionMsg(d.error ?? 'Failed.'); }
+    setActionBusy(false);
+  };
+
+  const sendPasswordReset = async () => {
+    setActionBusy(true); setActionMsg('');
+    const res = await fetch(`/api/admin/users/${user.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sendPasswordReset' }),
+    });
+    if (res.ok) setActionMsg('Password reset email sent.');
+    else { const d = await res.json() as { error?: string }; setActionMsg(d.error ?? 'Failed.'); }
+    setActionBusy(false);
+  };
 
   return (
     <>
@@ -216,6 +243,39 @@ export default function AdminUserDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Admin Actions */}
+        {user.role !== 'ADMIN' && (
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <ShieldAlert className="h-4 w-4 text-primary" /> Admin Actions
+            </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Role change */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Change role to:</span>
+                {['CANDIDATE', 'EMPLOYER'].filter(r => r !== user.role).map(r => (
+                  <button key={r} onClick={() => changeRole(r)} disabled={actionBusy}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary disabled:opacity-50">
+                    {actionBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : r.charAt(0) + r.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Password reset */}
+              {!user.email.includes('@phone.kaamkaaj.internal') && (
+                <button onClick={sendPasswordReset} disabled={actionBusy}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary disabled:opacity-50">
+                  {actionBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+                  Send Password Reset Email
+                </button>
+              )}
+            </div>
+            {actionMsg && (
+              <p className="mt-2 text-xs font-medium text-success">{actionMsg}</p>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

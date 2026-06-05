@@ -21,13 +21,23 @@ import { ApplicationStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 function buildMessageHtml(
   candidateName: string,
   jobTitle: string,
   companyName: string,
   message: string,
 ): string {
-  const paragraphs = message
+  const safe = escapeHtml(message);
+  const paragraphs = safe
     .split('\n')
     .filter(l => l.trim())
     .map(l => `<p style="margin:0 0 12px">${l}</p>`)
@@ -35,12 +45,12 @@ function buildMessageHtml(
 
   return `
     <div style="font-family:sans-serif;max-width:540px;margin:0 auto;color:#111827">
-      <h2 style="color:#5B5BD6;margin-bottom:4px">${companyName}</h2>
-      <p style="color:#6B7280;margin-top:0">Regarding: <strong>${jobTitle}</strong></p>
+      <h2 style="color:#5B5BD6;margin-bottom:4px">${escapeHtml(companyName)}</h2>
+      <p style="color:#6B7280;margin-top:0">Regarding: <strong>${escapeHtml(jobTitle)}</strong></p>
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0"/>
-      <p>Hi ${candidateName},</p>
+      <p>Hi ${escapeHtml(candidateName)},</p>
       ${paragraphs}
-      <p style="margin-top:24px">Best regards,<br><strong>${companyName}</strong></p>
+      <p style="margin-top:24px">Best regards,<br><strong>${escapeHtml(companyName)}</strong></p>
     </div>`;
 }
 

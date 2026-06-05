@@ -70,6 +70,19 @@ export async function POST(request: Request) {
 
     // Find or auto-create company for this employer
     let company = await prisma.company.findUnique({ where: { ownerId: userId } });
+
+    // Enforce active job posting limit
+    if (company) {
+      const activeCount = await prisma.job.count({
+        where: { companyId: company.id, status: 'ACTIVE' },
+      });
+      if (activeCount >= 50) {
+        return NextResponse.json(
+          { error: 'Active job limit reached (50). Please close some existing jobs before posting new ones.' },
+          { status: 429 }
+        );
+      }
+    }
     if (!company) {
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
       const displayName = user?.name ?? 'Employer';

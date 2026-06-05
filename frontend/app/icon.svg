@@ -1,0 +1,20 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kk-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#009a6e"/>
+      <stop offset="100%" stop-color="#006a4e"/>
+    </linearGradient>
+    <linearGradient id="kk-accent" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#c8f5e6" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#kk-bg)"/>
+  <rect x="8" y="10" width="3.5" height="28" rx="1.75" fill="url(#kk-accent)"/>
+  <line x1="11" y1="24" x2="22" y2="11" stroke="url(#kk-accent)" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="11" y1="24" x2="22" y2="37" stroke="url(#kk-accent)" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="26.5" y="10" width="3.5" height="28" rx="1.75" fill="white" fill-opacity="0.72"/>
+  <line x1="30" y1="24" x2="41" y2="11" stroke="white" stroke-opacity="0.72" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="30" y1="24" x2="41" y2="37" stroke="white" stroke-opacity="0.72" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="24" cy="24" r="2.2" fill="white" fill-opacity="0.9"/>
+</svg>

@@ -20,8 +20,9 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const role = (user.user_metadata?.role as string ?? '').toUpperCase();
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Verify role from DB — not from JWT metadata which can be stale
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
+    if (dbUser?.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') ?? 'users';

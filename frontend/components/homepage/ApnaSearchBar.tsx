@@ -48,13 +48,13 @@ export function ApnaSearchBar() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row bg-white rounded-xl shadow-lg ring-1 ring-gray-200">
+    <div className="flex flex-col sm:flex-row bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
       {/* Job title */}
-      <div className="flex items-center gap-3 flex-1 px-4 py-3.5 border-b lg:border-b-0 lg:border-r border-gray-200">
-        <Search className="h-5 w-5 text-gray-400 shrink-0" />
+      <div className="flex flex-1 items-center gap-2.5 px-4 py-3.5 border-b sm:border-b-0 sm:border-r border-gray-200">
+        <Search className="h-4 w-4 shrink-0 text-gray-400" />
         <input
           type="text"
-          placeholder="Search jobs by title..."
+          placeholder="Search jobs by title, skills..."
           value={jobTitle}
           onChange={(e) => setJobTitle(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -67,9 +67,9 @@ export function ApnaSearchBar() {
         <button
           type="button"
           onClick={() => setExpOpen((v) => !v)}
-          className="flex items-center gap-3 w-full lg:w-52 px-4 py-3.5 border-b lg:border-b-0 lg:border-r border-gray-200 hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2.5 w-full sm:w-44 px-4 py-3.5 border-b sm:border-b-0 sm:border-r border-gray-200 hover:bg-gray-50 transition-colors"
         >
-          <Briefcase className="h-5 w-5 text-gray-400 shrink-0" />
+          <Briefcase className="h-4 w-4 shrink-0 text-gray-400" />
           <span
             className={cn(
               'flex-1 text-sm text-left truncate',
@@ -80,14 +80,14 @@ export function ApnaSearchBar() {
           </span>
           <ChevronDown
             className={cn(
-              'h-4 w-4 text-gray-400 transition-transform duration-150',
+              'h-4 w-4 shrink-0 text-gray-400 transition-transform duration-150',
               expOpen && 'rotate-180'
             )}
           />
         </button>
 
         {expOpen && (
-          <div className="absolute top-full left-0 mt-1 min-w-[200px] bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1 min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
             {EXPERIENCE_OPTIONS.map((opt) => (
               <button
                 key={opt}
@@ -106,11 +106,11 @@ export function ApnaSearchBar() {
       </div>
 
       {/* Location */}
-      <div className="flex items-center gap-3 flex-1 px-4 py-3.5 border-b lg:border-b-0 border-gray-200">
-        <MapPin className="h-5 w-5 text-gray-400 shrink-0" />
+      <div className="flex flex-1 items-center gap-2.5 px-4 py-3.5 border-b sm:border-b-0 border-gray-200">
+        <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
         <input
           type="text"
-          placeholder="Search for an area..."
+          placeholder="Search for an area, city..."
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -122,7 +122,7 @@ export function ApnaSearchBar() {
       <button
         type="button"
         onClick={handleSearch}
-        className="w-full lg:w-auto px-8 py-3.5 bg-[#007a5a] text-white text-sm font-semibold hover:bg-[#006a4e] transition-colors rounded-b-xl lg:rounded-b-none lg:rounded-r-xl"
+        className="w-full sm:w-auto px-7 py-3.5 bg-[#007a5a] text-white text-sm font-semibold hover:bg-[#006a4e] transition-colors"
       >
         Search jobs
       </button>

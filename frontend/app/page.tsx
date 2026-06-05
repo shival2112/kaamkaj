@@ -260,61 +260,59 @@ export default function HomePage() {
         style={{ background: 'linear-gradient(135deg, #f7f5ff 0%, #fdf0f8 100%)' }}
       >
         <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16 lg:items-center">
-
+          {/* Heading row: left text + right collage */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-16 lg:items-center">
             <div>
-              <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#007a5a] mb-4">
+              <span className="inline-block text-sm font-bold uppercase tracking-widest text-[#007a5a] mb-4">
                 India&apos;s #1 Job Platform
               </span>
-              <h1 className="text-4xl font-bold leading-tight text-[#1a1a1a] sm:text-5xl">
+              <h1 className="text-5xl font-bold leading-tight text-[#1a1a1a] sm:text-6xl">
                 Your job search<br className="hidden sm:block" /> ends here
               </h1>
-              <p className="mt-3 text-lg text-[#555]">
+              <p className="mt-4 text-xl text-[#555]">
                 Discover{' '}
                 <span className="font-semibold text-[#1a1a1a]">50 lakh+</span>{' '}
-                career opportunities
+                career opportunities across India
               </p>
+            </div>
+            <HeroCollage />
+          </div>
 
-              <div className="mt-8">
-                <ApnaSearchBar />
-              </div>
+          {/* Search bar — constrained to 3xl so inputs don't show large empty gaps */}
+          <div className="mt-8 max-w-3xl">
+            <ApnaSearchBar />
+          </div>
 
-              <div className="mt-8 space-y-4">
-                {/* Proud to Support */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">
-                    Proud to Support
-                  </span>
-                  {GOVT_LOGOS.map(({ abbr, name, bg, text }) => (
-                    <div
-                      key={name}
-                      className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm"
-                    >
-                      <div className={`h-5 w-5 rounded ${bg} flex items-center justify-center shrink-0`}>
-                        <span className={`text-[7px] font-bold ${text}`}>{abbr}</span>
-                      </div>
-                      <span className="text-xs font-medium text-gray-700">{name}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Trusted by enterprises */}
-                <div>
-                  <p className="text-xs text-gray-400 mb-2">
-                    Trusted by 1000+ enterprises and 7 lakh+ MSMEs for hiring
-                  </p>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    {ENTERPRISE_LOGOS.map(({ name, color }) => (
-                      <span key={name} className={`text-sm font-bold ${color} tracking-tight`}>
-                        {name}
-                      </span>
-                    ))}
+          {/* Logos row */}
+          <div className="mt-6 space-y-4">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">
+                Proud to Support
+              </span>
+              {GOVT_LOGOS.map(({ abbr, name, bg, text }) => (
+                <div
+                  key={name}
+                  className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm"
+                >
+                  <div className={`h-5 w-5 rounded ${bg} flex items-center justify-center shrink-0`}>
+                    <span className={`text-[7px] font-bold ${text}`}>{abbr}</span>
                   </div>
+                  <span className="text-xs font-medium text-gray-700">{name}</span>
                 </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-2">
+                Trusted by 1000+ enterprises and 7 lakh+ MSMEs for hiring
+              </p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {ENTERPRISE_LOGOS.map(({ name, color }) => (
+                  <span key={name} className={`text-sm font-bold ${color} tracking-tight`}>
+                    {name}
+                  </span>
+                ))}
               </div>
             </div>
-
-            <HeroCollage />
           </div>
         </div>
       </section>

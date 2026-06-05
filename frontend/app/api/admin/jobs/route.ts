@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { JobType, JobStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,24 +21,33 @@ export async function GET(request: Request) {
     if (!admin) return NextResponse.json({ error: unauth ? 'Unauthorized' : 'Forbidden' }, { status: unauth ? 401 : 403 });
 
     const { searchParams } = new URL(request.url);
-    const q    = searchParams.get('q')?.trim() || undefined;
-    const page = Math.max(1, Number(searchParams.get('page') || 1));
+    const q          = searchParams.get('q')?.trim() || undefined;
+    const page       = Math.max(1, Number(searchParams.get('page') || 1));
+    const typeParam  = searchParams.get('type')?.toUpperCase();
+    const statusParam = searchParams.get('status')?.toUpperCase();
 
-    const where = q
-      ? {
-          OR: [
-            { title:    { contains: q, mode: 'insensitive' as const } },
-            { location: { contains: q, mode: 'insensitive' as const } },
-            { company:  { name: { contains: q, mode: 'insensitive' as const } } },
-          ],
-        }
-      : {};
+    const validTypes    = Object.values(JobType);
+    const validStatuses = Object.values(JobStatus);
+    const typeFilter   = typeParam   && validTypes.includes(typeParam as JobType)    ? (typeParam as JobType)     : undefined;
+    const statusFilter = statusParam && validStatuses.includes(statusParam as JobStatus) ? (statusParam as JobStatus) : undefined;
+
+    const where: Record<string, unknown> = {
+      ...(statusFilter && { status: statusFilter }),
+      ...(typeFilter   && { type:   typeFilter }),
+      ...(q && {
+        OR: [
+          { title:    { contains: q, mode: 'insensitive' as const } },
+          { location: { contains: q, mode: 'insensitive' as const } },
+          { company:  { name: { contains: q, mode: 'insensitive' as const } } },
+        ],
+      }),
+    };
 
     const [jobs, total] = await Promise.all([
       prisma.job.findMany({
         where,
         include: {
-          company: { select: { name: true } },
+          company: { select: { name: true, industry: true } },
           _count:  { select: { applications: true } },
         },
         orderBy: { createdAt: 'desc' },

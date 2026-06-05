@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Phone, CheckCircle2, Loader2, Camera, ExternalLink, Bell } from 'lucide-react';
+import { User, Mail, Phone, CheckCircle2, Loader2, Camera, ExternalLink, Bell, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
@@ -287,6 +287,34 @@ export default function ProfilePage() {
             </div>
 
           </div>
+
+          {/* Danger Zone */}
+          <div className="rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-1 text-sm font-semibold text-destructive">Danger Zone</h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              Permanently delete your account, all applications, and saved jobs. This cannot be undone.
+            </p>
+            <button
+              onClick={async () => {
+                if (!confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) return;
+                const res = await fetch('/api/candidate/account', { method: 'DELETE' });
+                if (res.ok) {
+                  const supabase = createSupabaseClient();
+                  await supabase.auth.signOut();
+                  clearUser();
+                  router.push('/');
+                } else {
+                  const d = await res.json() as { error?: string };
+                  alert(d.error ?? 'Failed to delete account.');
+                }
+              }}
+              className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete My Account
+            </button>
+          </div>
+
         </div>
       </div>
     </div>

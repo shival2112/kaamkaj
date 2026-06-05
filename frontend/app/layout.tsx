@@ -18,7 +18,14 @@ export const metadata: Metadata = {
     'KaamKaaj is a modern job portal connecting candidates with great opportunities across India.',
   keywords: ['jobs', 'hiring', 'career', 'employment', 'India', 'job search'],
   manifest: '/manifest.json',
-  themeColor: '#5B5BD6',
+  themeColor: '#007a5a',
+  icons: {
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/logo.svg',
+    shortcut: '/logo.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

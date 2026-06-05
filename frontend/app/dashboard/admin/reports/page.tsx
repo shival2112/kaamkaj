@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   FileBarChart, Users, Briefcase, ClipboardList,
-  TrendingUp, CheckCircle2, XCircle, Download,
+  TrendingUp, CheckCircle2, XCircle, Download, Bell, Loader2,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -41,8 +41,10 @@ function MetricCard({ label, value, sub, icon, iconBg, iconColor }: MetricCardPr
 export default function AdminReportsPage() {
   const user = useAuthStore((s) => s.user);
 
-  const [stats,   setStats]   = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats,        setStats]        = useState<Stats | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [alertBusy,    setAlertBusy]    = useState(false);
+  const [alertResult,  setAlertResult]  = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -114,6 +116,37 @@ export default function AdminReportsPage() {
                 <MetricCard label="Avg. Applications / Job" value={avgAppsPerJob}
                   sub="Across all listings" icon={<TrendingUp className="h-5 w-5" />}
                   iconBg="bg-blue-50" iconColor="text-blue-600" />
+              </div>
+            </section>
+
+            <section>
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Job Alert Delivery</h2>
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manually send job alert digest emails to all candidates whose saved alerts match recently posted jobs.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {[{ hours: 24, label: 'Last 24 hours' }, { hours: 72, label: 'Last 3 days' }, { hours: 168, label: 'Last 7 days' }].map(({ hours, label }) => (
+                    <button key={hours} disabled={alertBusy}
+                      onClick={async () => {
+                        setAlertBusy(true); setAlertResult('');
+                        try {
+                          const res = await fetch(`/api/candidate/alerts/trigger?hours=${hours}`, {
+                            method: 'POST',
+                            headers: { 'x-trigger-secret': process.env.NEXT_PUBLIC_ALERTS_TRIGGER_SECRET ?? '' },
+                          });
+                          const d = await res.json() as { sent?: number; skipped?: number };
+                          setAlertResult(`Sent: ${d.sent ?? 0}, Skipped: ${d.skipped ?? 0}`);
+                        } catch { setAlertResult('Request failed.'); }
+                        setAlertBusy(false);
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-secondary disabled:opacity-50">
+                      {alertBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {alertResult && <p className="mt-2 text-xs font-medium text-success">{alertResult}</p>}
               </div>
             </section>
 

@@ -16,7 +16,8 @@ export async function GET(
       },
     });
 
-    if (!job) {
+    // Treat DRAFT jobs as not-found for public access
+    if (!job || job.status === 'DRAFT') {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
