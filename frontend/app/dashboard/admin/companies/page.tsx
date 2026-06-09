@@ -1,27 +1,25 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Building2, Search, Loader2, ExternalLink, BadgeCheck, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Building2, Search, Loader2, ExternalLink, BadgeCheck, Trash2, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
-
-interface CompanyRow {
-  id: string; name: string; industry: string | null;
-  size: string | null; isVerified: boolean; createdAt: string;
-  owner: { name: string; email: string };
-  _count: { jobs: number };
-}
+import { AddCompanyModal, type CompanyRow } from '@/components/admin/AddCompanyModal';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 export default function AdminCompaniesPage() {
+
   const user = useAuthStore((s) => s.user);
-  const [companies,  setCompanies]  = useState<CompanyRow[]>([]);
-  const [total,      setTotal]      = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading,    setLoading]    = useState(true);
-  const [q,          setQ]          = useState('');
-  const [page,       setPage]       = useState(1);
-  const [actionMap,  setActionMap]  = useState<Record<string, boolean>>({});
+  const [companies,   setCompanies]   = useState<CompanyRow[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [totalPages,  setTotalPages]  = useState(1);
+  const [loading,     setLoading]     = useState(true);
+  const [q,           setQ]           = useState('');
+  const [page,        setPage]        = useState(1);
+  const [actionMap,   setActionMap]   = useState<Record<string, boolean>>({});
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { toasts, addToast, dismiss } = useToast();
 
   const load = useCallback(() => {
     if (!user) return;
@@ -52,6 +50,9 @@ export default function AdminCompaniesPage() {
     });
     if (res.ok) {
       setCompanies(prev => prev.map(c => c.id === id ? { ...c, isVerified: !current } : c));
+      addToast({ title: current ? 'Verification removed' : 'Company verified', variant: 'success' });
+    } else {
+      addToast({ title: 'Failed to update verification', variant: 'error' });
     }
     setActionMap(prev => ({ ...prev, [id]: false }));
   };
@@ -60,12 +61,23 @@ export default function AdminCompaniesPage() {
     if (!confirm(`Delete "${name}" and all its jobs? This cannot be undone.`)) return;
     setActionMap(prev => ({ ...prev, [id]: true }));
     const res = await fetch(`/api/admin/companies?id=${id}`, { method: 'DELETE' });
-    if (res.ok) setCompanies(prev => prev.filter(c => c.id !== id));
+    if (res.ok) {
+      setCompanies(prev => prev.filter(c => c.id !== id));
+      addToast({ title: `"${name}" deleted`, variant: 'success' });
+    } else {
+      addToast({ title: 'Failed to delete company', variant: 'error' });
+    }
     setActionMap(prev => ({ ...prev, [id]: false }));
   };
 
   return (
     <>
+      {showAddModal && (
+        <AddCompanyModal
+          onClose={() => setShowAddModal(false)}
+          onCreated={(co) => { setCompanies(prev => [co, ...prev]); setTotal(prev => prev + 1); addToast({ title: `Company "${co.name}" created`, variant: 'success' }); }}
+        />
+      )}
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
         <div className="flex items-center gap-2">
           <Building2 className="h-5 w-5 text-primary" />
@@ -84,6 +96,12 @@ export default function AdminCompaniesPage() {
             Search
           </button>
         </form>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" /> New Company
+        </button>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -155,6 +173,7 @@ export default function AdminCompaniesPage() {
           </div>
         )}
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

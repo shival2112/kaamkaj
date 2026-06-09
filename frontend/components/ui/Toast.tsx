@@ -1,15 +1,44 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, CheckCircle2, Bell } from 'lucide-react';
+import { X, CheckCircle2, Bell, AlertTriangle, AlertCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface ToastData {
   id: string;
   title: string;
-  message: string;
-  variant?: 'default' | 'success' | 'info';
+  message?: string;
+  variant?: 'default' | 'success' | 'error' | 'warning' | 'info';
+  duration?: number; // ms, default 4000
 }
+
+const VARIANT_STYLES = {
+  default: {
+    border:  'border-primary/20',
+    icon:    Bell,
+    iconCls: 'text-primary',
+  },
+  success: {
+    border:  'border-green-200',
+    icon:    CheckCircle2,
+    iconCls: 'text-green-600',
+  },
+  error: {
+    border:  'border-red-200',
+    icon:    AlertCircle,
+    iconCls: 'text-red-500',
+  },
+  warning: {
+    border:  'border-amber-200',
+    icon:    AlertTriangle,
+    iconCls: 'text-amber-500',
+  },
+  info: {
+    border:  'border-blue-200',
+    icon:    Info,
+    iconCls: 'text-blue-500',
+  },
+} as const;
 
 interface ToastItemProps {
   toast: ToastData;
@@ -17,24 +46,28 @@ interface ToastItemProps {
 }
 
 function ToastItem({ toast, onDismiss }: ToastItemProps) {
-  useEffect(() => {
-    const t = setTimeout(() => onDismiss(toast.id), 5000);
-    return () => clearTimeout(t);
-  }, [toast.id, onDismiss]);
+  const duration = toast.duration ?? 4000;
 
-  const Icon = toast.variant === 'success' ? CheckCircle2 : Bell;
-  const iconColor = toast.variant === 'success' ? 'text-green-600' : 'text-primary';
+  useEffect(() => {
+    const t = setTimeout(() => onDismiss(toast.id), duration);
+    return () => clearTimeout(t);
+  }, [toast.id, onDismiss, duration]);
+
+  const style = VARIANT_STYLES[toast.variant ?? 'default'];
+  const Icon  = style.icon;
 
   return (
     <div className={cn(
       'flex w-80 items-start gap-3 rounded-xl border bg-white px-4 py-3.5 shadow-lg',
       'animate-in slide-in-from-right-8 duration-200',
-      toast.variant === 'success' ? 'border-green-200' : 'border-primary/20',
+      style.border,
     )}>
-      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', iconColor)} />
+      <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', style.iconCls)} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-foreground">{toast.title}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{toast.message}</p>
+        {toast.message && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{toast.message}</p>
+        )}
       </div>
       <button
         onClick={() => onDismiss(toast.id)}
@@ -63,7 +96,6 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   );
 }
 
-// Hook for managing toasts
 export function useToast() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
 

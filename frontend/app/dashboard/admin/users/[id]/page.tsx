@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ChevronLeft, User, Briefcase, FileText, Mail, Phone, Calendar, ShieldAlert, KeyRound, Loader2 } from 'lucide-react';
+import { ChevronLeft, User, Briefcase, FileText, Mail, Phone, Calendar, ShieldAlert, KeyRound, Loader2, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,11 +48,12 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [user,       setUser]       = useState<UserDetail | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState('');
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionMsg,  setActionMsg]  = useState('');
+  const [user,        setUser]        = useState<UserDetail | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState('');
+  const [actionBusy,  setActionBusy]  = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const { toasts, addToast, dismiss } = useToast();
 
   useEffect(() => {
     fetch(`/api/admin/users/${id}`)
@@ -74,31 +76,58 @@ export default function AdminUserDetailPage() {
     </div>
   );
 
+  const handleDownloadResume = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/admin/candidates/${user.id}/resume`);
+      const data = await res.json() as { downloadUrl?: string };
+      if (data.downloadUrl) {
+        const a = document.createElement('a');
+        a.href = data.downloadUrl;
+        a.download = 'resume.pdf';
+        a.click();
+      } else {
+        addToast({ title: 'Could not generate download link', variant: 'error' });
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const parsedSkills = (user.resume?.parsedData as { skills?: string[] } | null)?.skills ?? [];
   const joined = new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const changeRole = async (newRole: string) => {
     if (!confirm(`Change ${user.name}'s role to ${newRole}?`)) return;
-    setActionBusy(true); setActionMsg('');
+    setActionBusy(true);
     const res = await fetch(`/api/admin/users/${user.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'changeRole', role: newRole }),
     });
-    if (res.ok) { setUser(u => u ? { ...u, role: newRole } : u); setActionMsg('Role updated.'); }
-    else { const d = await res.json() as { error?: string }; setActionMsg(d.error ?? 'Failed.'); }
+    if (res.ok) {
+      setUser(u => u ? { ...u, role: newRole } : u);
+      addToast({ title: 'Role updated', message: `Changed to ${newRole.toLowerCase()}`, variant: 'success' });
+    } else {
+      const d = await res.json() as { error?: string };
+      addToast({ title: d.error ?? 'Failed to change role', variant: 'error' });
+    }
     setActionBusy(false);
   };
 
   const sendPasswordReset = async () => {
-    setActionBusy(true); setActionMsg('');
+    setActionBusy(true);
     const res = await fetch(`/api/admin/users/${user.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'sendPasswordReset' }),
     });
-    if (res.ok) setActionMsg('Password reset email sent.');
-    else { const d = await res.json() as { error?: string }; setActionMsg(d.error ?? 'Failed.'); }
+    if (res.ok) {
+      addToast({ title: 'Password reset email sent', variant: 'success' });
+    } else {
+      const d = await res.json() as { error?: string };
+      addToast({ title: d.error ?? 'Failed to send reset email', variant: 'error' });
+    }
     setActionBusy(false);
   };
 
@@ -119,9 +148,14 @@ export default function AdminUserDetailPage() {
         {/* Profile card */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start gap-5">
-            <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white ${tileColor(user.name)}`}>
-              {user.name[0]?.toUpperCase() ?? '?'}
-            </div>
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name}
+                className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-2 ring-primary/20" />
+            ) : (
+              <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold text-white ${tileColor(user.name)}`}>
+                {user.name[0]?.toUpperCase() ?? '?'}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-bold text-foreground">{user.name}</h1>
@@ -176,14 +210,21 @@ export default function AdminUserDetailPage() {
             </h2>
             {user.resume ? (
               <>
-                <a
-                  href={user.resume.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
-                >
-                  <FileText className="h-4 w-4" /> View Resume
-                </a>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={user.resume.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <FileText className="h-4 w-4" /> View Resume
+                  </a>
+                  <button onClick={handleDownloadResume} disabled={downloading}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50">
+                    {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Download
+                  </button>
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Uploaded {new Date(user.resume.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
@@ -271,12 +312,10 @@ export default function AdminUserDetailPage() {
                 </button>
               )}
             </div>
-            {actionMsg && (
-              <p className="mt-2 text-xs font-medium text-success">{actionMsg}</p>
-            )}
           </div>
         )}
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

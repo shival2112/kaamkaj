@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, Briefcase, FileBarChart, Calendar, UserPlus, Activity,
-  Building2, Star,
+  Building2, Star, Settings, UserCheck, UserCog,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
@@ -15,14 +15,22 @@ const ADMIN_NAV: SidebarNavSection[] = [
   {
     label: 'Platform',
     items: [
-      { href: '/dashboard/admin',          label: 'Overview',  icon: LayoutDashboard },
-      { href: '/dashboard/admin/users',    label: 'Users',     icon: Users },
-      { href: '/dashboard/admin/jobs',     label: 'Jobs',      icon: Briefcase },
-      { href: '/dashboard/admin/meetings', label: 'Meetings',  icon: Calendar },
-      { href: '/dashboard/admin/companies', label: 'Companies', icon: Building2 },
-      { href: '/dashboard/admin/reviews',  label: 'Reviews',   icon: Star },
-      { href: '/dashboard/admin/reports',  label: 'Reports',   icon: FileBarChart },
-      { href: '/dashboard/admin/activity', label: 'Activity',  icon: Activity },
+      { href: '/dashboard/admin',           label: 'Overview',   icon: LayoutDashboard },
+      { href: '/dashboard/admin/jobs',      label: 'Jobs',       icon: Briefcase },
+      { href: '/dashboard/admin/meetings',  label: 'Meetings',   icon: Calendar },
+      { href: '/dashboard/admin/companies', label: 'Companies',  icon: Building2 },
+      { href: '/dashboard/admin/reviews',   label: 'Reviews',    icon: Star },
+      { href: '/dashboard/admin/reports',   label: 'Reports',    icon: FileBarChart },
+      { href: '/dashboard/admin/activity',  label: 'Activity',   icon: Activity },
+      { href: '/dashboard/admin/settings',  label: 'Settings',   icon: Settings },
+    ],
+  },
+  {
+    label: 'Users',
+    items: [
+      { href: '/dashboard/admin/users',            label: 'All Users',  icon: Users },
+      { href: '/dashboard/admin/users/candidates', label: 'Candidates', icon: UserCheck },
+      { href: '/dashboard/admin/users/employers',  label: 'Employers',  icon: UserCog },
     ],
   },
 ];

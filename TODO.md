@@ -304,6 +304,20 @@
 
 ---
 
+## Phase 24: Platform Completeness & Hardening
+- [x] F1: Change password from profile — `PATCH /api/auth/password` calls Supabase `auth.updateUser({ password })`; wired into candidate `/dashboard/profile` and employer `/employer/profile` settings sections; current password confirmation required
+- [x] F2: Job clone / repost — `POST /api/employer/jobs/[id]/clone` duplicates a job with status DRAFT and title prefixed "Copy of …"; button on employer listings page row; no schema change needed
+- [x] F3: Interview feedback — `POST /api/employer/interviews/[id]/feedback` saves outcome (PASSED / FAILED / NO_SHOW), rating 1–5, and private notes into Meeting record; feedback page wired to real API (fire-and-forget alongside Zustand save); Prisma schema: `feedbackOutcome`, `feedbackRating`, `feedbackNotes` added + `npx prisma db push`
+- [x] F4: Candidate application history export — `GET /api/candidate/applications/export` returns CSV; "Export CSV" button on `/dashboard/applications` page triggers client-side Blob download
+- [x] F5: Abuse report on job listings — `POST /api/jobs/[id]/report` stores report in new `JobReport` model; admin jobs table shows red report count badge; Prisma schema: `JobReport` model + `npx prisma db push`
+- [x] F6: Admin review moderation — `DELETE /api/admin/reviews/[id]` hard-deletes a `CompanyReview`; `/dashboard/admin/reviews` page lists all reviews with delete button; existing page updated to use RESTful endpoint
+- [x] F7: Admin announcement banner — `GET/POST/PATCH /api/admin/announcements` wraps Site Settings; `AnnouncementBanner` converted to client component: fetches on mount, supports sessionStorage dismiss with X button
+- [x] F8: Recruiter sub-accounts — `GET/POST/DELETE /api/employer/recruiters` fully implemented; `/employer/recruiters` page with add/remove modal; uses existing `recruiterCompanyId` relation on User
+- [x] F9: Admin settings enforcement — `max_applications_per_day` read from DB in apply route via `getMaxApplicationsPerDay()`; `maintenance_mode` returns 503 in `GET /api/jobs` and `POST /api/jobs/[id]/apply`; admin settings page exposes both controls
+- [x] F10: Stale job auto-close — `POST /api/admin/jobs/cleanup` closes ACTIVE jobs with no applications updated 90+ days ago; "Run Cleanup" button on admin Jobs page
+
+---
+
 ## Blockers
 *(None currently)*
 

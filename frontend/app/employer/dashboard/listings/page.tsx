@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Layers, PlusCircle, ExternalLink } from 'lucide-react';
+import { Layers, PlusCircle, ExternalLink, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { useSession } from 'next-auth/react';
@@ -41,7 +42,11 @@ const STATUS_MAP: Record<JobStatus, { label: string; style: string }> = {
   EXPIRED:  { label: 'Expired', style: 'bg-gray-100 text-gray-500' },
 };
 
-function StatusBtn({ job, onUpdated }: { job: Listing; onUpdated: (id: string, s: JobStatus) => void }) {
+function StatusBtn({ job, onUpdated, onError }: {
+  job: Listing;
+  onUpdated: (id: string, s: JobStatus) => void;
+  onError?: (msg: string) => void;
+}) {
   const [loading, setLoading] = useState(false);
 
   const toggle = async () => {
@@ -53,6 +58,7 @@ function StatusBtn({ job, onUpdated }: { job: Listing; onUpdated: (id: string, s
       body: JSON.stringify({ status: next }),
     });
     if (res.ok) onUpdated(job.id, next);
+    else onError?.('Failed to update job status');
     setLoading(false);
   };
 
@@ -87,6 +93,7 @@ export default function ListingsPage() {
 
   const [jobs,    setJobs]    = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toasts, addToast, dismiss } = useToast();
 
   const load = () => {
     if (!isEmployer) return;
@@ -102,6 +109,17 @@ export default function ListingsPage() {
 
   const handleUpdated = (id: string, status: JobStatus) => {
     setJobs(prev => prev.map(j => j.id === id ? { ...j, status } : j));
+    addToast({ title: status === 'ACTIVE' ? 'Job activated' : 'Job paused', variant: 'success' });
+  };
+
+  const handleClone = async (id: string) => {
+    const res = await fetch(`/api/employer/jobs/${id}/clone`, { method: 'POST' });
+    if (res.ok) {
+      addToast({ title: 'Job cloned as Draft', message: 'Find it at the top of your listings', variant: 'success' });
+      load();
+    } else {
+      addToast({ title: 'Failed to clone job', variant: 'error' });
+    }
   };
 
   const displayName =
@@ -188,11 +206,15 @@ export default function ListingsPage() {
                       className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
                       Edit
                     </Link>
+                    <button onClick={() => handleClone(job.id)}
+                      className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
+                      <Copy className="h-3 w-3" /> Clone
+                    </button>
                     <Link href={`/employer/dashboard/applications?jobId=${job.id}`}
                       className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary">
                       Applicants
                     </Link>
-                    <StatusBtn job={job} onUpdated={handleUpdated} />
+                    <StatusBtn job={job} onUpdated={handleUpdated} onError={msg => addToast({ title: msg, variant: 'error' })} />
                   </div>
                 </div>
               );
@@ -200,6 +222,7 @@ export default function ListingsPage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

@@ -90,6 +90,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isCandidate) return;
+    if (!sessionStorage.getItem('candidate_welcome_shown')) {
+      sessionStorage.setItem('candidate_welcome_shown', '1');
+      addToast({ title: `Welcome back, ${displayName || 'there'}!`, variant: 'default', duration: 3000 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCandidate]);
+
+  useEffect(() => {
+    if (!isCandidate) return;
     setDataLoading(true);
     Promise.all([
       fetch('/api/candidate/stats').then(r => r.json()),

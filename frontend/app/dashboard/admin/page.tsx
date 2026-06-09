@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { KPICard } from '@/components/ui/KPICard';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 interface Stats {
   totalUsers: number; totalJobs: number; activeJobs: number;
@@ -61,6 +62,7 @@ export default function AdminDashboardPage() {
   const [recentUsers, setRecentUsers] = useState<UserRow[]>([]);
   const [recentJobs,  setRecentJobs]  = useState<JobRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const { toasts, addToast, dismiss } = useToast();
 
   useEffect(() => {
     if (!user) return;
@@ -78,6 +80,15 @@ export default function AdminDashboardPage() {
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'Admin';
   const initials    = displayName.split(' ').map((w: string) => w[0] ?? '').filter(Boolean).slice(0, 2).join('').toUpperCase() || 'A';
   const greeting    = useMemo(getGreeting, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!sessionStorage.getItem('admin_welcome_shown')) {
+      sessionStorage.setItem('admin_welcome_shown', '1');
+      addToast({ title: `Welcome back, ${displayName}!`, message: 'Admin dashboard loaded', variant: 'default', duration: 3000 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
     <>
@@ -202,6 +213,7 @@ export default function AdminDashboardPage() {
           ))}
         </div>
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

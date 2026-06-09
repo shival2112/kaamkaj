@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Globe, Users, FileText, Loader2, CheckCircle2, Trash2 } from 'lucide-react';
+import { Building2, Globe, Users, FileText, Loader2, CheckCircle2, Trash2, KeyRound } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
 import { useRouter } from 'next/navigation';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 const INDUSTRIES = [
   'Software & IT Services', 'Banking & Finance', 'Healthcare', 'Education',
@@ -24,6 +25,12 @@ export default function CompanyProfilePage() {
   const [saving,   setSaving]   = useState(false);
   const [success,  setSuccess]  = useState(false);
   const [error,    setError]    = useState('');
+  const { toasts, addToast, dismiss } = useToast();
+
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd,     setNewPwd]     = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [savingPwd,  setSavingPwd]  = useState(false);
 
   // Form state
   const [name,        setName]        = useState('');
@@ -48,6 +55,25 @@ export default function CompanyProfilePage() {
       })
       .finally(() => setFetching(false));
   }, []);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPwd !== confirmPwd) { addToast({ title: 'New passwords do not match', variant: 'error' }); return; }
+    setSavingPwd(true);
+    try {
+      const res = await fetch('/api/auth/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { addToast({ title: data.error ?? 'Failed to change password', variant: 'error' }); return; }
+      addToast({ title: 'Password changed successfully', variant: 'success' });
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+    } finally {
+      setSavingPwd(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,6 +203,37 @@ export default function CompanyProfilePage() {
           </form>
         )}
 
+        {/* Change Password */}
+        <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <KeyRound className="h-4 w-4 text-[#6B46C1]" /> Change Password
+          </h2>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className={labelCls}>Current Password</label>
+              <input type="password" required value={currentPwd} onChange={e => setCurrentPwd(e.target.value)}
+                placeholder="Enter current password" className={inputCls} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>New Password</label>
+                <input type="password" required minLength={8} value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                  placeholder="At least 8 characters" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Confirm New Password</label>
+                <input type="password" required minLength={8} value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                  placeholder="Repeat new password" className={inputCls} />
+              </div>
+            </div>
+            <button type="submit" disabled={savingPwd}
+              className="flex items-center gap-2 rounded-xl bg-[#6B46C1] px-5 py-2.5 text-sm font-bold text-white hover:bg-purple-700 disabled:opacity-60 transition-colors">
+              {savingPwd && <Loader2 className="h-4 w-4 animate-spin" />}
+              {savingPwd ? 'Updating…' : 'Update Password'}
+            </button>
+          </form>
+        </div>
+
         {/* Danger Zone */}
         <div className="mt-8 rounded-xl border border-red-200 bg-white p-6">
           <h2 className="mb-1 text-sm font-semibold text-red-600">Danger Zone</h2>
@@ -184,6 +241,7 @@ export default function CompanyProfilePage() {
           <DeleteAccountButton />
         </div>
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </EmployerShell>
   );
 }
@@ -196,7 +254,7 @@ function DeleteAccountButton() {
         if (!confirm('Delete your employer account and all jobs? This cannot be undone.')) return;
         const res = await fetch('/api/candidate/account', { method: 'DELETE' });
         if (res.ok) { router.push('/'); }
-        else { const d = await res.json() as { error?: string }; alert(d.error ?? 'Failed.'); }
+        else { const d = await res.json() as { error?: string }; window.alert(d.error ?? 'Failed.'); }
       }}
       className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
     >

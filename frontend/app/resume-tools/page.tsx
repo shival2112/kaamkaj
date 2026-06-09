@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { FileText, Download, Eye, Zap, CheckCircle } from 'lucide-react';
+import { FileText, Download, Eye, Zap, LogIn } from 'lucide-react';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const metadata: Metadata = {
   title: 'Resume Tools | KaamKaaj',
@@ -8,13 +9,24 @@ export const metadata: Metadata = {
 };
 
 const FEATURES = [
-  { icon: Zap,          text: 'Build in minutes with a guided form' },
-  { icon: Eye,          text: 'Live preview as you type' },
-  { icon: Download,     text: 'Download as PDF — completely free' },
-  { icon: CheckCircle,  text: 'Save & edit anytime if you\'re logged in' },
+  { icon: Zap,      text: 'Build in minutes with a guided form' },
+  { icon: Eye,      text: 'Live preview as you type' },
+  { icon: Download, text: 'Download as PDF — completely free' },
+  { icon: LogIn,    text: 'Sign in required to build & download your resume' },
 ];
 
-export default function ResumeToolsPage() {
+export default async function ResumeToolsPage() {
+  let isLoggedIn = false;
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    isLoggedIn = !!user;
+  } catch { /* not fatal */ }
+
+  const builderHref = isLoggedIn
+    ? '/resume-tools/builder'
+    : '/login?next=/resume-tools/builder';
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
@@ -27,16 +39,21 @@ export default function ResumeToolsPage() {
             Resume Builder
           </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            Create a professional resume in minutes — 100% free, no sign-up required.
+            Create a professional resume in minutes — 100% free.
           </p>
+          {!isLoggedIn && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              <span className="font-medium text-primary">Sign in required</span> to build and download your resume.
+            </p>
+          )}
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/resume-tools/builder"
+              href={builderHref}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-white transition-colors hover:bg-primary/90"
             >
               <FileText className="h-5 w-5" />
-              Build My Resume
+              {isLoggedIn ? 'Build My Resume' : 'Sign In to Build'}
             </Link>
             <Link
               href="/jobs"
@@ -69,9 +86,9 @@ export default function ResumeToolsPage() {
           </h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
             {[
-              { step: '1', title: 'Fill the form', desc: 'Enter your personal details, work experience, education and skills.' },
-              { step: '2', title: 'Preview live',  desc: 'See your professional resume update in real time on the right panel.' },
-              { step: '3', title: 'Download PDF',  desc: 'Click Download to save your resume as a PDF using browser print.' },
+              { step: '1', title: 'Sign in',        desc: 'Log in or create a free KaamKaaj account to get started.' },
+              { step: '2', title: 'Fill the form',  desc: 'Enter your personal details, work experience, education and skills.' },
+              { step: '3', title: 'Download PDF',   desc: 'Preview live and download your resume as a PDF instantly.' },
             ].map(({ step, title, desc }) => (
               <div key={step} className="flex flex-col items-center text-center rounded-xl border border-border bg-white p-6 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-lg font-bold text-white">
@@ -86,11 +103,11 @@ export default function ResumeToolsPage() {
 
         <div className="mt-12 text-center">
           <Link
-            href="/resume-tools/builder"
+            href={builderHref}
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-10 py-4 text-base font-semibold text-white transition-colors hover:bg-primary/90"
           >
             <FileText className="h-5 w-5" />
-            Start Building — It&apos;s Free
+            {isLoggedIn ? 'Start Building — It\'s Free' : 'Sign In to Get Started'}
           </Link>
         </div>
       </div>

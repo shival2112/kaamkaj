@@ -65,6 +65,8 @@ export default function PostJobPage() {
           type:            dbType,
           experienceLevel: dbLevel,
           vacancies:       openings,
+          urgent,
+          deadline:        deadline || undefined,
         }),
       });
       if (res.ok) {

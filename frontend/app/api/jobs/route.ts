@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { JobType, JobStatus, ExperienceLevel } from '@prisma/client';
+import { isMaintenanceMode } from '@/lib/siteSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,9 @@ function resolveTypeFilter(
 }
 
 export async function GET(request: Request) {
+  if (await isMaintenanceMode()) {
+    return NextResponse.json({ error: 'Platform under maintenance' }, { status: 503 });
+  }
   // Non-blocking: auto-expire jobs whose expiresAt has passed
   prisma.job.updateMany({
     where: { status: JobStatus.ACTIVE, expiresAt: { lt: new Date() } },

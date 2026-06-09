@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ClipboardList, ExternalLink, Trash2 } from 'lucide-react';
+import { ClipboardList, ExternalLink, Trash2, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 interface Application {
   id: string;
@@ -45,6 +46,8 @@ export default function ApplicationsPage() {
   const [total,         setTotal]         = useState(0);
   const [loading,       setLoading]       = useState(true);
   const [withdrawing,   setWithdrawing]   = useState<string | null>(null);
+  const [exporting,     setExporting]     = useState(false);
+  const { toasts, addToast, dismiss } = useToast();
 
   useEffect(() => {
     if (!isCandidate) return;
@@ -66,9 +69,32 @@ export default function ApplicationsPage() {
       if (res.ok) {
         setApplications(prev => prev.filter(a => a.id !== appId));
         setTotal(prev => prev - 1);
+        addToast({ title: 'Application withdrawn', variant: 'success' });
+      } else {
+        addToast({ title: 'Failed to withdraw application', variant: 'error' });
       }
     } finally {
       setWithdrawing(null);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/candidate/applications/export');
+      if (!res.ok) { addToast({ title: 'Export failed', variant: 'error' }); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'my-applications.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast({ title: 'CSV downloaded', variant: 'success' });
+    } catch {
+      addToast({ title: 'Export failed', variant: 'error' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -102,10 +128,16 @@ export default function ApplicationsPage() {
             <h1 className="font-semibold text-foreground">My Applications</h1>
             {!loading && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{total}</span>}
           </div>
-          <Link href="/jobs"
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
-            Browse Jobs
-          </Link>
+          <div className="flex items-center gap-2">
+            <button onClick={handleExport} disabled={exporting || loading || total === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-40">
+              <Download className="h-4 w-4" />{exporting ? 'Exporting…' : 'Export CSV'}
+            </button>
+            <Link href="/jobs"
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90">
+              Browse Jobs
+            </Link>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -170,6 +202,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

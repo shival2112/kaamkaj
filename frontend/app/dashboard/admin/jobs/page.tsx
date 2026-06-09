@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Briefcase, Search, Loader2, ChevronLeft, ChevronRight, ExternalLink, XCircle, RefreshCw, Download } from 'lucide-react';
+import { Briefcase, Search, Loader2, ChevronLeft, ChevronRight, ExternalLink, XCircle, RefreshCw, Download, Trash } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 interface JobRow {
   id: string; title: string; location: string; type: string;
   status: string; createdAt: string; viewCount?: number;
+  reportCount?: number;
   experienceLevel: string;
   company: { name: string; industry?: string | null };
   _count: { applications: number };
@@ -46,9 +48,11 @@ export default function AdminJobsPage() {
   const [page,       setPage]       = useState(1);
   const [typeFilter,  setTypeFilter]  = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [actionMap,   setActionMap]   = useState<Record<string, boolean>>({});
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
+  const [actionMap,    setActionMap]    = useState<Record<string, boolean>>({});
+  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set());
+  const [bulkLoading,  setBulkLoading]  = useState(false);
+  const [cleaning,     setCleaning]     = useState(false);
+  const { toasts, addToast, dismiss } = useToast();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -81,6 +85,23 @@ export default function AdminJobsPage() {
 
   const handleSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); load(); };
 
+  const handleCleanup = async () => {
+    if (!confirm('Close all stale ACTIVE jobs (no applications, not updated in 90+ days)?')) return;
+    setCleaning(true);
+    try {
+      const res = await fetch('/api/admin/jobs/cleanup', { method: 'POST' });
+      const d = await res.json() as { closed?: number; error?: string };
+      if (res.ok) {
+        addToast({ title: `Cleanup complete — ${d.closed} job${d.closed !== 1 ? 's' : ''} closed`, variant: 'success' });
+        load();
+      } else {
+        addToast({ title: d.error ?? 'Cleanup failed', variant: 'error' });
+      }
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -111,7 +132,9 @@ export default function AdminJobsPage() {
         ),
       );
       setJobs(prev => prev.map(j => selectedIds.has(j.id) ? { ...j, status } : j));
+      const count = selectedIds.size;
       setSelectedIds(new Set());
+      addToast({ title: `${count} job${count !== 1 ? 's' : ''} ${status === 'CLOSED' ? 'closed' : 'reopened'}`, variant: 'success' });
     } finally {
       setBulkLoading(false);
     }
@@ -126,6 +149,9 @@ export default function AdminJobsPage() {
     });
     if (res.ok) {
       setJobs(prev => prev.map(j => j.id === id ? { ...j, status } : j));
+      addToast({ title: status === 'CLOSED' ? 'Job removed' : 'Job reopened', variant: 'success' });
+    } else {
+      addToast({ title: 'Failed to update job status', variant: 'error' });
     }
     setActionMap(prev => ({ ...prev, [id]: false }));
   };
@@ -175,6 +201,11 @@ export default function AdminJobsPage() {
               <option value="DRAFT">Draft</option>
               <option value="EXPIRED">Expired</option>
             </select>
+            <button onClick={handleCleanup} disabled={cleaning}
+              className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-semibold text-orange-600 transition-colors hover:bg-orange-100 disabled:opacity-50">
+              {cleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash className="h-4 w-4" />}
+              Run Cleanup
+            </button>
             <a
               href="/api/admin/export?type=jobs"
               download
@@ -211,14 +242,14 @@ export default function AdminJobsPage() {
         )}
 
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="grid grid-cols-[auto_2fr_1.2fr_1fr_0.8fr_1fr_0.8fr_1fr_auto] gap-3 border-b border-gray-100 px-6 py-3">
+          <div className="grid grid-cols-[auto_2fr_1.2fr_1fr_0.8fr_1fr_0.6fr_0.8fr_1fr_auto] gap-3 border-b border-gray-100 px-6 py-3">
             <input type="checkbox"
               checked={jobs.length > 0 && selectedIds.size === jobs.length}
               onChange={toggleSelectAll}
               className="h-4 w-4 accent-primary cursor-pointer"
               title="Select all"
             />
-            {(['JOB TITLE', 'COMPANY', 'TYPE', 'VIEWS', 'APPS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
+            {(['JOB TITLE', 'COMPANY', 'TYPE', 'VIEWS', 'APPS', 'REPORTS', 'STATUS', 'POSTED', 'ACTIONS'] as const).map(col => (
               <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
             ))}
           </div>
@@ -235,7 +266,7 @@ export default function AdminJobsPage() {
             </div>
           ) : jobs.map(job => (
             <div key={job.id}
-              className="grid grid-cols-[auto_2fr_1.2fr_1fr_0.8fr_1fr_0.8fr_1fr_auto] items-center gap-3 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
+              className="grid grid-cols-[auto_2fr_1.2fr_1fr_0.8fr_1fr_0.6fr_0.8fr_1fr_auto] items-center gap-3 border-b border-gray-50 px-6 py-4 last:border-0 hover:bg-gray-50 transition-colors">
               <input type="checkbox"
                 checked={selectedIds.has(job.id)}
                 onChange={() => toggleSelect(job.id)}
@@ -264,6 +295,10 @@ export default function AdminJobsPage() {
               </div>
               <p className="text-sm font-medium text-foreground">{job.viewCount ?? 0}</p>
               <p className="text-sm font-medium text-foreground">{job._count.applications}</p>
+              {(job.reportCount ?? 0) > 0
+                ? <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">{job.reportCount}</span>
+                : <span className="text-sm text-muted-foreground">—</span>
+              }
               <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', STATUS_STYLES[job.status] ?? 'bg-gray-100 text-gray-500')}>
                 {job.status.charAt(0) + job.status.slice(1).toLowerCase()}
               </span>
@@ -308,6 +343,7 @@ export default function AdminJobsPage() {
           </div>
         )}
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

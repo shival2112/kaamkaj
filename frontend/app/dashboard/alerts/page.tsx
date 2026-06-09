@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 interface Alert { id: string; keywords: string; location: string; createdAt: string }
 
@@ -26,7 +27,7 @@ export default function AlertsPage() {
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState<string | null>(null);
   const [error,     setError]     = useState('');
-  const [success,   setSuccess]   = useState('');
+  const { toasts, addToast, dismiss } = useToast();
 
   useEffect(() => {
     if (!user) return;
@@ -38,7 +39,7 @@ export default function AlertsPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSuccess('');
+    setError('');
     if (!keywords.trim() && !location.trim()) {
       setError('Enter keywords or a location.'); return;
     }
@@ -53,8 +54,7 @@ export default function AlertsPage() {
       if (!res.ok) { setError(data.error ?? 'Failed to save alert.'); return; }
       setAlerts(prev => [data.alert!, ...prev]);
       setKeywords(''); setLocation('');
-      setSuccess('Alert created! You\'ll see matching jobs on your dashboard.');
-      setTimeout(() => setSuccess(''), 4000);
+      addToast({ title: 'Alert created!', message: 'You\'ll see matching jobs on your dashboard', variant: 'success' });
     } finally {
       setSaving(false);
     }
@@ -63,8 +63,13 @@ export default function AlertsPage() {
   const handleDelete = async (id: string) => {
     setDeleting(id);
     try {
-      await fetch(`/api/candidate/alerts?id=${id}`, { method: 'DELETE' });
-      setAlerts(prev => prev.filter(a => a.id !== id));
+      const res = await fetch(`/api/candidate/alerts?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAlerts(prev => prev.filter(a => a.id !== id));
+        addToast({ title: 'Alert deleted', variant: 'success' });
+      } else {
+        addToast({ title: 'Failed to delete alert', variant: 'error' });
+      }
     } finally {
       setDeleting(null);
     }
@@ -108,9 +113,6 @@ export default function AlertsPage() {
 
               {error && (
                 <div className="mt-3 rounded-lg bg-danger/10 px-4 py-2.5 text-sm text-danger">{error}</div>
-              )}
-              {success && (
-                <div className="mt-3 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">{success}</div>
               )}
 
               <form onSubmit={handleAdd} className="mt-4 space-y-3">
@@ -215,6 +217,7 @@ export default function AlertsPage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

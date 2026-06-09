@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FileText, Upload, Trash2, ExternalLink,
-  CheckCircle2, Loader2, AlertCircle, Plus, X, Zap,
+  CheckCircle2, Loader2, Plus, X, Zap,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 interface ResumeRecord {
   id: string;
@@ -38,14 +39,12 @@ export default function ResumePage() {
   const [uploading, setUploading] = useState(false);
   const [deleting,  setDeleting]  = useState(false);
   const [progress,  setProgress]  = useState(0);
-  const [error,     setError]     = useState('');
-  const [success,   setSuccess]   = useState('');
+  const { toasts, addToast, dismiss } = useToast();
 
   // Skills state
   const [skills,       setSkills]       = useState<string[]>([]);
   const [skillInput,   setSkillInput]   = useState('');
   const [savingSkills, setSavingSkills] = useState(false);
-  const [skillsMsg,    setSkillsMsg]    = useState('');
 
   // Load existing resume
   useEffect(() => {
@@ -79,17 +78,16 @@ export default function ResumePage() {
   const removeSkill = (skill: string) => setSkills(prev => prev.filter(s => s !== skill));
 
   const saveSkills = async () => {
-    setSavingSkills(true); setSkillsMsg('');
+    setSavingSkills(true);
     try {
       const res = await fetch('/api/candidate/resume', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skills }),
       });
-      if (!res.ok) { setSkillsMsg('Failed to save skills.'); return; }
-      setSkillsMsg('Skills saved!');
-      setTimeout(() => setSkillsMsg(''), 3000);
-    } catch { setSkillsMsg('Failed to save skills.'); }
+      if (!res.ok) { addToast({ title: 'Failed to save skills', variant: 'error' }); return; }
+      addToast({ title: 'Skills saved!', variant: 'success' });
+    } catch { addToast({ title: 'Failed to save skills', variant: 'error' }); }
     finally { setSavingSkills(false); }
   };
 
@@ -98,14 +96,13 @@ export default function ResumePage() {
     e.target.value = '';
 
     if (!file) return;
-    setError(''); setSuccess('');
 
     if (file.type !== 'application/pdf') {
-      setError('Only PDF files are accepted.');
+      addToast({ title: 'Only PDF files are accepted', variant: 'error' });
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setError(`File is too large. Maximum size is ${MAX_SIZE_MB} MB.`);
+      addToast({ title: `File too large (max ${MAX_SIZE_MB} MB)`, variant: 'error' });
       return;
     }
 
@@ -123,11 +120,10 @@ export default function ResumePage() {
         .upload(path, file, { upsert: true, contentType: 'application/pdf' });
 
       if (uploadError) {
-        // Bucket may not exist yet — surface a clear message
         if (uploadError.message.includes('Bucket not found') || uploadError.message.includes('bucket')) {
-          setError('Storage bucket "resumes" not found. Create it in your Supabase dashboard (Storage → New Bucket → "resumes", public).');
+          addToast({ title: 'Storage bucket "resumes" not found', message: 'Create it in Supabase dashboard', variant: 'error' });
         } else {
-          setError(uploadError.message);
+          addToast({ title: 'Upload failed', message: uploadError.message, variant: 'error' });
         }
         return;
       }
@@ -148,16 +144,15 @@ export default function ResumePage() {
 
       if (!res.ok) {
         const d = await res.json() as { error?: string };
-        setError(d.error ?? 'Failed to save resume record');
+        addToast({ title: d.error ?? 'Failed to save resume record', variant: 'error' });
         return;
       }
 
       const { resume: saved } = await res.json() as { resume: ResumeRecord };
       setResume(saved);
-      setSuccess('Resume uploaded successfully!');
-      setTimeout(() => setSuccess(''), 4000);
+      addToast({ title: 'Resume uploaded!', variant: 'success' });
     } catch (err) {
-      setError('Upload failed. Please try again.');
+      addToast({ title: 'Upload failed. Please try again.', variant: 'error' });
       console.error('[resume upload]', err);
     } finally {
       setUploading(false);
@@ -167,18 +162,15 @@ export default function ResumePage() {
 
   const handleDelete = async () => {
     if (!confirm('Remove your resume? This cannot be undone.')) return;
-    setDeleting(true); setError(''); setSuccess('');
+    setDeleting(true);
     try {
       const supabase = createSupabaseClient();
-      // Remove from storage
       await supabase.storage.from(BUCKET).remove([`${user!.id}/resume.pdf`]);
-      // Remove DB record
       await fetch('/api/candidate/resume', { method: 'DELETE' });
       setResume(null);
-      setSuccess('Resume removed.');
-      setTimeout(() => setSuccess(''), 3000);
+      addToast({ title: 'Resume removed', variant: 'success' });
     } catch {
-      setError('Failed to delete resume. Please try again.');
+      addToast({ title: 'Failed to delete resume. Please try again.', variant: 'error' });
     } finally {
       setDeleting(false);
     }
@@ -215,18 +207,6 @@ export default function ResumePage() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-2xl space-y-5">
-
-            {/* Feedback banners */}
-            {success && (
-              <div className="flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-                <CheckCircle2 className="h-4 w-4 shrink-0" /> {success}
-              </div>
-            )}
-            {error && (
-              <div className="flex items-center gap-2 rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
-                <AlertCircle className="h-4 w-4 shrink-0" /> {error}
-              </div>
-            )}
 
             {/* Current resume card */}
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
@@ -326,11 +306,6 @@ export default function ResumePage() {
                 </button>
               </div>
 
-              {skillsMsg && (
-                <p className={`mt-2 text-xs font-medium ${skillsMsg.startsWith('Failed') ? 'text-danger' : 'text-success'}`}>
-                  {skillsMsg}
-                </p>
-              )}
             </div>
 
             {/* Upload card */}
@@ -411,6 +386,7 @@ export default function ResumePage() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

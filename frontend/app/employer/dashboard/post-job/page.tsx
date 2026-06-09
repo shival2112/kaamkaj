@@ -3,6 +3,7 @@
 import { useState, KeyboardEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Plus, Loader2, Briefcase } from 'lucide-react';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
 import { useSession } from 'next-auth/react';
@@ -62,7 +63,7 @@ export default function PostJobPage() {
   const [skills,     setSkills]     = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error,      setError]      = useState('');
+  const { toasts, addToast, dismiss } = useToast();
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
@@ -78,7 +79,7 @@ export default function PostJobPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setSubmitting(true);
+    setSubmitting(true);
     try {
       const res = await fetch('/api/employer/jobs', {
         method: 'POST',
@@ -93,7 +94,7 @@ export default function PostJobPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? 'Failed to post job'); return; }
+      if (!res.ok) { addToast({ title: data.error ?? 'Failed to post job', variant: 'error' }); return; }
       console.log('[post-job/dashboard] created job:', (data as { id: string }).id);
       router.push('/employer/dashboard/listings');
     } finally {
@@ -134,10 +135,6 @@ export default function PostJobPage() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-5">
-
-            {error && (
-              <div className="rounded-lg bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
-            )}
 
             {/* Basic info */}
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
@@ -238,7 +235,7 @@ export default function PostJobPage() {
           </form>
         </div>
       </div>
-
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

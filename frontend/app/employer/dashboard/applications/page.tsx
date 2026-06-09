@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ClipboardList, PlusCircle, ChevronDown } from 'lucide-react';
+import { ClipboardList, PlusCircle, ChevronDown, UserCircle } from 'lucide-react';
+import { CandidateProfileDrawer } from '@/components/employer/CandidateProfileDrawer';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
@@ -13,6 +14,7 @@ import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
 import {
   LayoutDashboard, Layers, BarChart3,
 } from 'lucide-react';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 const EMPLOYER_NAV: SidebarNavSection[] = [
   {
@@ -46,10 +48,14 @@ function tileColor(name: string) {
 interface Application {
   id: string; status: string; appliedAt: string;
   job: { id: string; title: string };
-  candidate: { id: string; name: string; email: string };
+  candidate: { id: string; name: string; email: string; avatar?: string | null };
 }
 
-function StageActions({ app, onUpdated }: { app: Application; onUpdated: (id: string, s: string) => void }) {
+function StageActions({ app, onUpdated, onError }: {
+  app: Application;
+  onUpdated: (id: string, s: string) => void;
+  onError?: (msg: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const nexts = NEXT_STATUSES[app.status] ?? [];
@@ -63,6 +69,7 @@ function StageActions({ app, onUpdated }: { app: Application; onUpdated: (id: st
       body: JSON.stringify({ status }),
     });
     if (res.ok) onUpdated(app.id, status);
+    else onError?.('Failed to update application status');
     setLoading(false);
   };
 
@@ -106,6 +113,8 @@ function ApplicationsContent() {
   const [apps,    setApps]    = useState<Application[]>([]);
   const [total,   setTotal]   = useState(0);
   const [loading, setLoading] = useState(true);
+  const [viewCandidateId, setViewCandidateId] = useState<string | null>(null);
+  const { toasts, addToast, dismiss } = useToast();
   const jobId = searchParams.get('jobId') ?? '';
 
   useEffect(() => {
@@ -122,8 +131,10 @@ function ApplicationsContent() {
       .finally(() => setLoading(false));
   }, [isEmployer, jobId]);
 
-  const handleUpdated = (id: string, status: string) =>
+  const handleUpdated = (id: string, status: string) => {
     setApps(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    addToast({ title: `Application moved to ${status.toLowerCase()}`, variant: 'success' });
+  };
 
   const displayName =
     dbUser?.name ??
@@ -164,9 +175,9 @@ function ApplicationsContent() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] gap-4 border-b border-gray-100 px-6 py-3">
-              {(['CANDIDATE', 'JOB', 'STAGE', 'APPLIED', 'UPDATE STAGE'] as const).map(col => (
-                <span key={col} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
+            <div className="grid grid-cols-[2fr_2fr_1fr_1fr_auto_auto] gap-4 border-b border-gray-100 px-6 py-3">
+              {(['CANDIDATE', 'JOB', 'STAGE', 'APPLIED', 'UPDATE STAGE', ''] as const).map((col, i) => (
+                <span key={i} className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{col}</span>
               ))}
             </div>
 
@@ -182,11 +193,16 @@ function ApplicationsContent() {
               </div>
             ) : apps.map(app => (
               <div key={app.id}
-                className="grid grid-cols-[2fr_2fr_1fr_1fr_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50">
+                className="grid grid-cols-[2fr_2fr_1fr_1fr_auto_auto] items-center gap-4 border-b border-gray-50 px-6 py-4 last:border-0 transition-colors hover:bg-gray-50">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(app.candidate.name)}`}>
-                    {app.candidate.name[0]?.toUpperCase() ?? '?'}
-                  </div>
+                  {app.candidate.avatar ? (
+                    <img src={app.candidate.avatar} alt={app.candidate.name}
+                      className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${tileColor(app.candidate.name)}`}>
+                      {app.candidate.name[0]?.toUpperCase() ?? '?'}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{app.candidate.name}</p>
                     <p className="truncate text-xs text-muted-foreground">{app.candidate.email}</p>
@@ -197,12 +213,22 @@ function ApplicationsContent() {
                 <p className="text-sm text-muted-foreground">
                   {new Date(app.appliedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </p>
-                <StageActions app={app} onUpdated={handleUpdated} />
+                <StageActions app={app} onUpdated={handleUpdated} onError={msg => addToast({ title: msg, variant: 'error' })} />
+                <button onClick={() => setViewCandidateId(app.candidate.id)}
+                  className="flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+                  <UserCircle className="h-3.5 w-3.5" /> View
+                </button>
               </div>
             ))}
           </div>
         </div>
       </div>
+      <CandidateProfileDrawer
+        candidateId={viewCandidateId}
+        resumeApiBase="/api/employer/candidates"
+        onClose={() => setViewCandidateId(null)}
+      />
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

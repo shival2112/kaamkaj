@@ -6,6 +6,7 @@ import { Briefcase, Users, CheckCircle, ArrowRight } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
 import { useAuth } from '@/hooks/useAuth';
 import { useSession } from 'next-auth/react';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 // Normalise DB enum values to the lowercase strings the JSX expects
 function normaliseType(t: string) {
@@ -29,11 +30,14 @@ interface DbJob {
 export default function EmployerDashboardPage() {
   const { user } = useAuth();               // Supabase employer
   const { data: nextSession } = useSession(); // NextAuth phone employer
+  const { toasts, addToast, dismiss } = useToast();
 
   // An employer is authenticated via EITHER auth mechanism
   const isEmployer =
     (!!user && (user.user_metadata?.role as string ?? '').toUpperCase() === 'EMPLOYER') ||
     (!!nextSession?.user && (nextSession.user.role as string ?? '').toUpperCase() === 'EMPLOYER');
+
+  const displayName = user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
 
   const [jobs,            setJobs]           = useState<DbJob[]>([]);
   const [totalApplicants, setTotalApplicants] = useState(0);
@@ -41,6 +45,15 @@ export default function EmployerDashboardPage() {
   const [dataLoading,     setDataLoading]     = useState(true);
 
   const upcomingIvs: never[] = []; // No interview model in DB yet
+
+  useEffect(() => {
+    if (!isEmployer) return;
+    if (!sessionStorage.getItem('employer_welcome_shown')) {
+      sessionStorage.setItem('employer_welcome_shown', '1');
+      addToast({ title: `Welcome back, ${displayName}!`, message: 'Employer dashboard loaded', variant: 'default', duration: 3000 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEmployer]);
 
   useEffect(() => {
     if (!isEmployer) return;
@@ -72,6 +85,7 @@ export default function EmployerDashboardPage() {
   ];
 
   return (
+    <>
     <EmployerShell>
       <div className="p-6 lg:p-8">
         <h1 className="text-2xl font-extrabold text-gray-900">Overview</h1>
@@ -158,5 +172,7 @@ export default function EmployerDashboardPage() {
         </div>
       </div>
     </EmployerShell>
+    <ToastContainer toasts={toasts} onDismiss={dismiss} />
+    </>
   );
 }

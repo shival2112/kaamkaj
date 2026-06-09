@@ -55,6 +55,7 @@ export async function PATCH(
       type?: string; experienceLevel?: string;
       salaryMin?: number | null; salaryMax?: number | null;
       vacancies?: number; skills?: string[];
+      urgent?: boolean; deadline?: string;
     };
 
     const validStatuses = Object.values(JobStatus)        as string[];
@@ -78,11 +79,17 @@ export async function PATCH(
         ...(body.salaryMax       !== undefined && { salaryMax:       body.salaryMax }),
         ...(body.vacancies       !== undefined && { vacancies:       body.vacancies }),
         ...(body.skills          !== undefined && { skills:          body.skills.filter(Boolean) }),
+        ...(body.deadline        !== undefined && { expiresAt:       new Date(body.deadline) }),
       },
     });
 
+    // Update is_urgent via raw SQL (Prisma client types lag until next generate)
+    if (body.urgent !== undefined) {
+      await prisma.$executeRaw`UPDATE jobs SET is_urgent = ${body.urgent} WHERE id = ${params.id}`;
+    }
+
     console.log('[PATCH /api/employer/jobs/:id] updated job', params.id, 'for company', company.id);
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, isUrgent: body.urgent ?? false });
   } catch (error) {
     console.error('[PATCH /api/employer/jobs/[id]]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

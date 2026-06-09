@@ -5,6 +5,7 @@ import { auth } from '@/auth';
 import { sendEmail } from '@/lib/mailer';
 import { applicationConfirmationHtml } from '@/lib/emailTemplates/applicationConfirmation';
 import { newApplicantAlertHtml } from '@/lib/emailTemplates/newApplicantAlert';
+import { getMaxApplicationsPerDay, isMaintenanceMode } from '@/lib/siteSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,10 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    if (await isMaintenanceMode()) {
+      return NextResponse.json({ error: 'The platform is temporarily under maintenance. Please try again later.' }, { status: 503 });
+    }
+
     // ── Resolve candidate via Supabase (email/password / OAuth) ────────────────
     let candidateId: string | null = null;
     let candidateName  = 'Candidate';
@@ -97,8 +102,8 @@ export async function POST(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    // ── Daily rate limit: max 10 applications per 24 h ───────────────────────
-    const DAILY_LIMIT = 10;
+    // ── Daily rate limit — reads max from DB setting (default 10) ────────────
+    const DAILY_LIMIT = await getMaxApplicationsPerDay();
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const todayCount = await prisma.application.count({
       where: { candidateId, appliedAt: { gte: since } },

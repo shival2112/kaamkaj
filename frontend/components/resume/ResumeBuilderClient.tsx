@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import {
   Plus, Trash2, Download, Save, CheckCircle, Loader2,
-  User, Briefcase, GraduationCap, Star, FileText,
+  User, Briefcase, GraduationCap, Star, FileText, FilePlus,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -187,6 +187,26 @@ export function ResumeBuilderClient({ initialData, isLoggedIn }: Props) {
   const [saved,   setSaved]   = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
 
+  const hasContent = () => {
+    const pi = data.personalInfo;
+    return pi.name || pi.email || pi.phone || data.summary ||
+      data.experience.some(e => e.jobTitle || e.company) ||
+      data.education.some(e => e.degree || e.school) ||
+      data.skills.some(Boolean);
+  };
+
+  const handleNewResume = () => {
+    if (hasContent() && !confirm('Start a new resume? Your current data will be cleared.')) return;
+    setData({
+      personalInfo: { name: '', email: '', phone: '', location: '', linkedin: '' },
+      summary: '',
+      experience: [emptyExp()],
+      education: [emptyEdu()],
+      skills: [''],
+    });
+    setSaved(false);
+  };
+
   const updatePI = useCallback((field: keyof ResumeData['personalInfo'], value: string) => {
     setData(d => ({ ...d, personalInfo: { ...d.personalInfo, [field]: value } }));
   }, []);
@@ -275,6 +295,11 @@ export function ResumeBuilderClient({ initialData, isLoggedIn }: Props) {
                 </button>
               ))}
             </div>
+            <button onClick={handleNewResume}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+              <FilePlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">New Resume</span>
+            </button>
             {isLoggedIn && (
               <button onClick={handleSave} disabled={saving}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50">
@@ -485,11 +510,6 @@ export function ResumeBuilderClient({ initialData, isLoggedIn }: Props) {
                   <ResumePreview data={data} />
                 </div>
               </div>
-              {!isLoggedIn && (
-                <p className="mt-3 text-center text-xs text-muted-foreground">
-                  <a href="/login" className="font-medium text-primary hover:underline">Log in</a> to save your resume and access it later.
-                </p>
-              )}
             </div>
           </div>
 

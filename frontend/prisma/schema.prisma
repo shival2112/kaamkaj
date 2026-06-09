@@ -16,6 +16,7 @@ datasource db {
 enum Role {
   CANDIDATE
   EMPLOYER
+  RECRUITER
   ADMIN
 }
 
@@ -66,14 +67,19 @@ model User {
   verificationExpiry  DateTime? @map("verification_expiry")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
+  recruiterCompanyId  String?   @map("recruiter_company_id")
 
   // Relations
-  company         Company?
-  applications    Application[]
-  savedJobs       SavedJob[]
-  resume          Resume?
-  companyReviews  CompanyReview[]
-  jobTemplates    JobTemplate[]
+  company                  Company?       @relation("CompanyOwner")
+  recruiterCompany         Company?       @relation("CompanyRecruiters", fields: [recruiterCompanyId], references: [id], onDelete: SetNull)
+  applications             Application[]
+  savedJobs                SavedJob[]
+  resume                   Resume?
+  companyReviews           CompanyReview[]
+  jobTemplates             JobTemplate[]
+  meetingsAsParticipant    Meeting[]      @relation("MeetingParticipant")
+  meetingsScheduled        Meeting[]      @relation("MeetingScheduledBy")
+  jobReports               JobReport[]
 
   @@map("users")
 }
@@ -92,9 +98,10 @@ model Company {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  owner   User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  jobs    Job[]
-  reviews CompanyReview[]
+  owner      User            @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  recruiters User[]          @relation("CompanyRecruiters")
+  jobs       Job[]
+  reviews    CompanyReview[]
 
   @@map("companies")
 }
@@ -112,6 +119,7 @@ model Job {
   status          JobStatus       @default(ACTIVE)
   vacancies       Int             @default(1)
   skills          String[]        @default([])
+  isUrgent        Boolean         @default(false) @map("is_urgent")
   expiresAt       DateTime?       @map("expires_at")
   viewCount       Int             @default(0) @map("view_count")
   createdAt       DateTime        @default(now()) @map("created_at")
@@ -121,6 +129,8 @@ model Job {
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   applications Application[]
   savedByUsers SavedJob[]
+  meetings     Meeting[]
+  reports      JobReport[]
 
   // Indexes for common query patterns
   @@index([companyId])
@@ -265,4 +275,55 @@ model PhoneEmployer {
   about       String    @default("")
 
   @@map("phone_employers")
+}
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("site_settings")
+}
+
+model Meeting {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  jobId            String?  @map("job_id")
+  round            String
+  date             String
+  time             String
+  mode             String
+  link             String?
+  interviewer      String
+  status           String   @default("scheduled")
+  scheduledBy      String   @map("scheduled_by")
+  feedbackOutcome  String?  @map("feedback_outcome")  // PASSED | FAILED | NO_SHOW
+  feedbackRating   Int?     @map("feedback_rating")   // 1–5
+  feedbackNotes    String?  @map("feedback_notes")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  participant     User  @relation("MeetingParticipant", fields: [userId], references: [id], onDelete: Cascade)
+  job             Job?  @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  scheduledByUser User  @relation("MeetingScheduledBy", fields: [scheduledBy], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("meetings")
+}
+
+model JobReport {
+  id         String   @id @default(uuid())
+  jobId      String   @map("job_id")
+  reporterId String   @map("reporter_id")
+  reason     String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  job      Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, reporterId])
+  @@index([jobId])
+  @@map("job_reports")
 }

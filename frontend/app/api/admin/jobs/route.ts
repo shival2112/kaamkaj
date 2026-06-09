@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { JobType, JobStatus } from '@prisma/client';
 
@@ -57,7 +58,19 @@ export async function GET(request: Request) {
       prisma.job.count({ where }),
     ]);
 
-    return NextResponse.json({ jobs, total, page, totalPages: Math.ceil(total / PAGE_SIZE) });
+    // Attach report counts (raw query — job_reports table added after last prisma generate)
+    const jobIds = jobs.map(j => j.id);
+    let reportCounts: Record<string, number> = {};
+    if (jobIds.length) {
+      const rows = await prisma.$queryRaw<{ job_id: string; cnt: bigint }[]>(
+        Prisma.sql`SELECT job_id, COUNT(*)::int AS cnt FROM job_reports WHERE job_id = ANY(${jobIds}::uuid[]) GROUP BY job_id`
+      );
+      reportCounts = Object.fromEntries(rows.map(r => [r.job_id, Number(r.cnt)]));
+    }
+
+    const enriched = jobs.map(j => ({ ...j, reportCount: reportCounts[j.id] ?? 0 }));
+
+    return NextResponse.json({ jobs: enriched, total, page, totalPages: Math.ceil(total / PAGE_SIZE) });
   } catch (error) {
     console.error('[GET /api/admin/jobs]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

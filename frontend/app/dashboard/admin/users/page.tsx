@@ -2,15 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Trash2, ShieldOff, ShieldCheck, Download } from 'lucide-react';
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Trash2, ShieldOff, ShieldCheck, Download, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
-
-interface UserRow {
-  id: string; name: string; email: string; role: string;
-  isVerified: boolean; createdAt: string;
-  _count: { applications: number };
-}
+import { AddUserModal, type UserRow } from '@/components/admin/AddUserModal';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 const TILE_COLORS = ['bg-blue-500','bg-violet-500','bg-green-600','bg-orange-500','bg-pink-500','bg-indigo-500','bg-teal-500'];
 function tileColor(name: string) {
@@ -37,6 +33,8 @@ export default function AdminUsersPage() {
   const [deleteMap,   setDeleteMap]   = useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const { toasts, addToast, dismiss } = useToast();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -72,11 +70,18 @@ export default function AdminUsersPage() {
     if (res.ok) {
       setUsers(prev => prev.filter(u => u.id !== id));
       setTotal(prev => prev - 1);
+      addToast({ title: `"${name}" deleted`, variant: 'success' });
     } else {
       const data = await res.json() as { error?: string };
-      alert(data.error ?? 'Failed to delete user');
+      addToast({ title: data.error ?? 'Failed to delete user', variant: 'error' });
     }
     setDeleteMap(prev => ({ ...prev, [id]: false }));
+  };
+
+  const handleUserCreated = (newUser: UserRow) => {
+    setUsers(prev => [newUser, ...prev]);
+    setTotal(prev => prev + 1);
+    addToast({ title: `User "${newUser.name}" created`, variant: 'success' });
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -119,7 +124,9 @@ export default function AdminUsersPage() {
       setUsers(prev => prev.map(u =>
         selectedIds.has(u.id) ? { ...u, isVerified: action === 'restore' } : u,
       ));
+      const count = selectedIds.size;
       setSelectedIds(new Set());
+      addToast({ title: `${count} user${count !== 1 ? 's' : ''} ${action === 'suspend' ? 'suspended' : 'restored'}`, variant: 'success' });
     } finally {
       setBulkLoading(false);
     }
@@ -135,12 +142,21 @@ export default function AdminUsersPage() {
     });
     if (res.ok) {
       setUsers(prev => prev.map(u => u.id === id ? { ...u, isVerified: !currentlyVerified } : u));
+      addToast({ title: currentlyVerified ? 'User suspended' : 'User restored', variant: currentlyVerified ? 'warning' : 'success' });
+    } else {
+      addToast({ title: 'Action failed', variant: 'error' });
     }
     setActionMap(prev => ({ ...prev, [id]: false }));
   };
 
   return (
     <>
+      {showAddModal && (
+        <AddUserModal
+          onClose={() => setShowAddModal(false)}
+          onCreated={handleUserCreated}
+        />
+      )}
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
@@ -162,13 +178,21 @@ export default function AdminUsersPage() {
             Search
           </button>
         </form>
-        <a
-          href="/api/admin/export?type=users"
-          download
-          className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-        >
-          <Download className="h-4 w-4" /> Export CSV
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
+          >
+            <UserPlus className="h-4 w-4" /> New User
+          </button>
+          <a
+            href="/api/admin/export?type=users"
+            download
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+          >
+            <Download className="h-4 w-4" /> Export CSV
+          </a>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -295,6 +319,7 @@ export default function AdminUsersPage() {
           </div>
         )}
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

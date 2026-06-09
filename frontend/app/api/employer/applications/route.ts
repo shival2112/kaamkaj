@@ -43,7 +43,7 @@ export async function GET(request: Request) {
         where,
         include: {
           job:       { select: { id: true, title: true, status: true } },
-          candidate: { select: { id: true, name: true, email: true } },
+          candidate: { select: { id: true, name: true, email: true, avatar: true } },
         },
         orderBy: { appliedAt: 'desc' },
         skip: (page - 1) * limit,

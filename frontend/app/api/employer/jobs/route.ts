@@ -55,9 +55,10 @@ export async function POST(request: Request) {
       title: string; type: string; location: string;
       experienceLevel: string; salaryMin?: number; salaryMax?: number;
       vacancies?: number; skills?: string[]; description: string;
+      urgent?: boolean; deadline?: string;
     };
 
-    const { title, type, location, experienceLevel, salaryMin, salaryMax, vacancies = 1, skills = [], description } = body;
+    const { title, type, location, experienceLevel, salaryMin, salaryMax, vacancies = 1, skills = [], description, urgent = false, deadline } = body;
 
     if (!title?.trim() || !location?.trim() || !description?.trim()) {
       return NextResponse.json({ error: 'title, location and description are required' }, { status: 400 });
@@ -92,7 +93,9 @@ export async function POST(request: Request) {
       console.log('[POST /api/employer/jobs] auto-created company', company.id, 'for userId', userId);
     }
 
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const expiresAt = deadline
+      ? new Date(deadline)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const job = await prisma.job.create({
       data: {
@@ -111,8 +114,13 @@ export async function POST(request: Request) {
       },
     });
 
+    // Set is_urgent via raw SQL — Prisma client types lag behind schema until next generate
+    if (urgent) {
+      await prisma.$executeRaw`UPDATE jobs SET is_urgent = true WHERE id = ${job.id}`;
+    }
+
     console.log('[POST /api/employer/jobs] created job', job.id, 'for company', company.id);
-    return NextResponse.json(job, { status: 201 });
+    return NextResponse.json({ ...job, isUrgent: urgent }, { status: 201 });
   } catch (error) {
     console.error('[POST /api/employer/jobs]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

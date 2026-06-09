@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Star, Search, Loader2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 interface ReviewRow {
   id: string; rating: number; title: string; body: string | null; createdAt: string;
@@ -30,6 +31,7 @@ export default function AdminReviewsPage() {
   const [q,          setQ]          = useState('');
   const [page,       setPage]       = useState(1);
   const [deleting,   setDeleting]   = useState<Record<string, boolean>>({});
+  const { toasts, addToast, dismiss } = useToast();
 
   const load = useCallback(() => {
     if (!user) return;
@@ -52,8 +54,13 @@ export default function AdminReviewsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this review permanently?')) return;
     setDeleting(p => ({ ...p, [id]: true }));
-    const res = await fetch(`/api/admin/reviews?id=${id}`, { method: 'DELETE' });
-    if (res.ok) setReviews(p => p.filter(r => r.id !== id));
+    const res = await fetch(`/api/admin/reviews/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setReviews(p => p.filter(r => r.id !== id));
+      addToast({ title: 'Review deleted', variant: 'success' });
+    } else {
+      addToast({ title: 'Failed to delete review', variant: 'error' });
+    }
     setDeleting(p => ({ ...p, [id]: false }));
   };
 
@@ -133,6 +140,7 @@ export default function AdminReviewsPage() {
           </div>
         )}
       </div>
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

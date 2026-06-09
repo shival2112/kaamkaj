@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ConditionalNavbar } from '@/components/layout/ConditionalNavbar';
+import { AnnouncementBanner } from '@/components/layout/AnnouncementBanner';
 import { AppAuthProvider } from '@/context/AppAuthContext';
 import { NextAuthProvider } from '@/components/auth/NextAuthProvider';
 import { AuthModal } from '@/components/auth/AuthModal';
@@ -48,6 +49,7 @@ export default function RootLayout({
             >
               Skip to main content
             </a>
+            <AnnouncementBanner />
             <ConditionalNavbar />
             <AuthModal />
             <main id="main-content">{children}</main>

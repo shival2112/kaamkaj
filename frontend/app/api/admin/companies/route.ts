@@ -51,6 +51,52 @@ export async function GET(request: Request) {
   }
 }
 
+// POST — create a new company
+export async function POST(request: Request) {
+  try {
+    const admin = await verifyAdmin();
+    if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const body = await request.json() as {
+      name?: string; industry?: string; size?: string;
+      description?: string; website?: string; ownerId?: string;
+    };
+    const { name, industry, size, description, website, ownerId } = body;
+
+    if (!name?.trim() || !ownerId?.trim()) {
+      return NextResponse.json({ error: 'name and ownerId are required' }, { status: 400 });
+    }
+
+    const owner = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { id: true, role: true, company: true },
+    });
+    if (!owner) return NextResponse.json({ error: 'Owner not found' }, { status: 404 });
+    if (owner.role !== 'EMPLOYER') return NextResponse.json({ error: 'Owner must have EMPLOYER role' }, { status: 400 });
+    if (owner.company) return NextResponse.json({ error: 'This employer already has a company' }, { status: 409 });
+
+    const company = await prisma.company.create({
+      data: {
+        name: name.trim(),
+        industry: industry?.trim() || null,
+        size: size?.trim() || null,
+        description: description?.trim() || null,
+        website: website?.trim() || null,
+        ownerId,
+      },
+      include: {
+        owner:  { select: { name: true, email: true } },
+        _count: { select: { jobs: true } },
+      },
+    });
+
+    return NextResponse.json(company, { status: 201 });
+  } catch (error) {
+    console.error('[POST /api/admin/companies]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // PATCH — toggle isVerified
 export async function PATCH(request: Request) {
   try {

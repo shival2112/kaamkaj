@@ -47,6 +47,13 @@ export default function FeedbackPage() {
 
   if (!interview) return notFound();
 
+  const outcomeMap: Record<string, string> = {
+    'Move to Next Round': 'PASSED',
+    'Final Select':       'PASSED',
+    'On Hold':            'FAILED',
+    'Reject':             'FAILED',
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const feedback = { overall, technical, communication, culturalFit, problemSolving, strengths, improvements, recommendation };
@@ -59,6 +66,17 @@ export default function FeedbackPage() {
       'Reject': 'rejected',
     };
     updateCandidate(interview.candidateId, { status: (statusMap[recommendation] ?? 'reviewed') as import('@/data/employerData').CandidateStatus });
+
+    // Persist to DB if this is a real meeting ID (fire-and-forget)
+    fetch(`/api/employer/interviews/${params.id}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        outcome: outcomeMap[recommendation] ?? 'PASSED',
+        rating:  Math.max(1, Math.round(overall / 2)),
+        notes:   [strengths && `Strengths: ${strengths}`, improvements && `Improvements: ${improvements}`].filter(Boolean).join('\n'),
+      }),
+    }).catch(() => {/* non-fatal — meeting may be mock-only */});
 
     setSaved(true);
     setTimeout(() => router.push(`/employer/candidates/${interview.candidateId}`), 1500);

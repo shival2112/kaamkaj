@@ -14,6 +14,7 @@ import {
   Calendar,
   BarChart3,
   Building,
+  UserPlus,
   LogOut,
   Menu,
   Plus,
@@ -33,6 +34,7 @@ const NAV = [
   { href: '/employer/pipeline',     label: 'Hiring Pipeline',        icon: Columns2 },
   { href: '/employer/interviews',   label: 'Interviews',             icon: Calendar },
   { href: '/employer/analytics',    label: 'Analytics',              icon: BarChart3 },
+  { href: '/employer/recruiters',   label: 'Recruiters',             icon: UserPlus },
   { href: '/employer/profile',      label: 'Company Profile',        icon: Building },
 ];
 

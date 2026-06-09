@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Plus, X, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 const EXPERIENCE_OPTIONS = [
   { value: 'FRESHER', label: 'Fresher (0 years)' },
@@ -40,7 +41,7 @@ export default function OnboardingPage() {
   const [experienceLevel, setExperienceLevel] = useState('FRESHER');
   const [loading,         setLoading]         = useState(false);
   const [prefilling,      setPrefilling]      = useState(true);
-  const [error,           setError]           = useState('');
+  const { toasts, addToast, dismiss } = useToast();
 
   // Resume upload state
   const [resumeFile,      setResumeFile]      = useState<File | null>(null);
@@ -96,7 +97,6 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       // 1. Upload resume to Supabase Storage if a new file was chosen
@@ -138,7 +138,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({ name, phone, headline, bio, location, skills, experienceLevel }),
       });
       const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok) { setError(data.error ?? 'Something went wrong.'); return; }
+      if (!res.ok) { addToast({ title: data.error ?? 'Something went wrong', variant: 'error' }); return; }
       router.push('/dashboard');
       router.refresh();
     } finally {
@@ -159,6 +159,7 @@ export default function OnboardingPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 px-4 py-10">
       <div className="mx-auto max-w-xl">
         {/* Header */}
@@ -170,9 +171,6 @@ export default function OnboardingPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl bg-white p-6 shadow-sm">
-          {error && (
-            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
-          )}
 
           {/* Name */}
           <div>
@@ -304,5 +302,7 @@ export default function OnboardingPage() {
         </p>
       </div>
     </div>
+    <ToastContainer toasts={toasts} onDismiss={dismiss} />
+    </>
   );
 }

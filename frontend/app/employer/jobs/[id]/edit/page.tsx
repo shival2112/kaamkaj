@@ -2,8 +2,9 @@
 
 import { useState, useEffect, KeyboardEvent } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { X, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
+import { useToast, ToastContainer } from '@/components/ui/Toast';
 
 // ─── DB enum maps ─────────────────────────────────────────────────────────────
 
@@ -39,8 +40,8 @@ export default function EditJobPage() {
 
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
-  const [saved,       setSaved]       = useState(false);
   const [error,       setError]       = useState('');
+  const { toasts, addToast, dismiss } = useToast();
 
   // Form fields — initialised from API
   const [title,        setTitle]       = useState('');
@@ -115,10 +116,10 @@ export default function EditJobPage() {
         throw new Error(body.error ?? `Server error ${res.status}`);
       }
 
-      setSaved(true);
-      setTimeout(() => router.push('/employer/jobs'), 800);
+      addToast({ title: 'Job saved!', variant: 'success', duration: 2000 });
+      router.push('/employer/jobs');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+      addToast({ title: err instanceof Error ? err.message : 'Failed to save', variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -128,6 +129,7 @@ export default function EditJobPage() {
   const labelCls = 'mb-1.5 block text-xs font-semibold text-gray-600';
 
   return (
+    <>
     <EmployerShell>
       <div className="mx-auto max-w-2xl p-6 lg:p-8">
         <h1 className="text-2xl font-extrabold text-gray-900">Edit Job</h1>
@@ -143,14 +145,6 @@ export default function EditJobPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-            {saved && (
-              <div className="flex items-center gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-                <CheckCircle2 className="h-4 w-4" /> Saved! Redirecting…
-              </div>
-            )}
-            {error && (
-              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
-            )}
 
             {/* Title */}
             <div>
@@ -239,7 +233,7 @@ export default function EditJobPage() {
                 className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
                 Cancel
               </button>
-              <button type="submit" disabled={saving || saved}
+              <button type="submit" disabled={saving}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#6B46C1] py-3 text-sm font-bold text-white hover:bg-purple-700 disabled:opacity-60">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {saving ? 'Saving…' : 'Save Changes'}
@@ -249,5 +243,7 @@ export default function EditJobPage() {
         )}
       </div>
     </EmployerShell>
+    <ToastContainer toasts={toasts} onDismiss={dismiss} />
+    </>
   );
 }
