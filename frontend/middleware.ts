@@ -4,8 +4,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 function getDashboardPath(role: string): string {
   const r = role.toUpperCase();
-  if (r === 'EMPLOYER') return '/employer/dashboard';
-  if (r === 'ADMIN')    return '/dashboard/admin';
+  if (r === 'EMPLOYER')  return '/employer/dashboard';
+  if (r === 'ADMIN')     return '/dashboard/admin';
+  if (r === 'RECRUITER') return '/recruiter/dashboard';
   return '/dashboard';
 }
 
@@ -17,8 +18,33 @@ export default auth(async function middleware(req: NextRequest & { auth?: { user
   // ── Redirect already-logged-in NextAuth users away from /login and /signup ──
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   if (isAuthPage && nextRole) {
-    const dest = nextRole === 'EMPLOYER' ? '/employer/dashboard' : '/dashboard';
-    return NextResponse.redirect(new URL(dest, req.url));
+    return NextResponse.redirect(new URL(getDashboardPath(nextRole), req.url));
+  }
+
+  // ── /recruiter/* ─────────────────────────────────────────────────────────
+  if (pathname.startsWith('/recruiter')) {
+    let response = NextResponse.next({ request: req });
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => req.cookies.getAll(),
+          setAll: (list) => {
+            list.forEach(({ name, value }) => req.cookies.set(name, value));
+            response = NextResponse.next({ request: req });
+            list.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          },
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const role = (user.user_metadata?.role as string ?? '').toUpperCase();
+      if (role === 'RECRUITER') return response;
+      return NextResponse.redirect(new URL(getDashboardPath(role), req.url));
+    }
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
   // ── /employer/* ───────────────────────────────────────────────────────────
@@ -93,5 +119,5 @@ export default auth(async function middleware(req: NextRequest & { auth?: { user
 });
 
 export const config = {
-  matcher: ['/login', '/signup', '/employer/:path*', '/dashboard/:path*'],
+  matcher: ['/login', '/signup', '/employer/:path*', '/recruiter/:path*', '/dashboard/:path*'],
 };

@@ -12,7 +12,7 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import { StatusChip, mapDbStatus } from '@/components/ui/StatusChip';
 import {
-  LayoutDashboard, Layers, BarChart3,
+  LayoutDashboard, Layers, BarChart3, AlertCircle, FileText,
 } from 'lucide-react';
 import { useToast, ToastContainer } from '@/components/ui/Toast';
 
@@ -24,6 +24,7 @@ const EMPLOYER_NAV: SidebarNavSection[] = [
       { href: '/employer/dashboard/listings',    label: 'My Listings',           icon: Layers },
       { href: '/employer/dashboard/applications',label: 'Applications Received', icon: ClipboardList },
       { href: '/employer/dashboard/analytics',   label: 'Analytics',             icon: BarChart3 },
+      { href: '/employer/offer-letter',          label: 'Offer Letter',          icon: FileText },
     ],
   },
 ];
@@ -47,6 +48,8 @@ function tileColor(name: string) {
 
 interface Application {
   id: string; status: string; appliedAt: string;
+  hasMultipleApps?: boolean;
+  hasNoShowHistory?: boolean;
   job: { id: string; title: string };
   candidate: { id: string; name: string; email: string; avatar?: string | null };
 }
@@ -204,7 +207,19 @@ function ApplicationsContent() {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{app.candidate.name}</p>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{app.candidate.name}</p>
+                      {app.hasMultipleApps && (
+                        <span title="Applied to multiple of your jobs" className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
+                          <AlertCircle className="h-2.5 w-2.5" /> Multi
+                        </span>
+                      )}
+                      {app.hasNoShowHistory && (
+                        <span title="Previously marked as no-show for an interview" className="inline-flex items-center gap-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
+                          <AlertCircle className="h-2.5 w-2.5" /> No-show
+                        </span>
+                      )}
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">{app.candidate.email}</p>
                   </div>
                 </div>

@@ -51,6 +51,18 @@ export async function POST(request: Request) {
     const userId = await resolveEmployerUserId();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // ── Email verification gate ──────────────────────────────────────────────
+    const employerUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { emailVerified: true, email: true },
+    });
+    if (employerUser && !employerUser.emailVerified && !employerUser.email.endsWith('@phone.kaamkaaj.internal')) {
+      return NextResponse.json(
+        { error: 'Please verify your email address before posting a job.', code: 'EMAIL_NOT_VERIFIED' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json() as {
       title: string; type: string; location: string;
       experienceLevel: string; salaryMin?: number; salaryMax?: number;

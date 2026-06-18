@@ -318,6 +318,63 @@
 
 ---
 
+## Phase 25: Recruiter Portal (Full Module) ✓
+- [x] Schema: `InterviewEvaluation` model (5 scored criteria, recommendation enum, strengths/improvements/notes, sharedWithEmployer, FK → Meeting + evaluator)
+- [x] Schema: `assignedRecruiterId` on Application; `npx prisma db push`
+- [x] `lib/recruiter-auth.ts` — `resolveRecruiterContext()` returns `{ userId, companyId }`
+- [x] `middleware.ts` — add RECRUITER role routing → `/recruiter/dashboard`
+- [x] `GET /api/recruiter/dashboard` — KPIs (assigned apps, today's interviews, pass/fail/hired counts)
+- [x] `GET /api/recruiter/jobs` — company jobs list
+- [x] `POST /api/recruiter/jobs` — post new job under company
+- [x] `GET /api/recruiter/applications` — all company applications, filter by status/job
+- [x] `PATCH /api/recruiter/applications/[id]` — status update + hire confirmation email
+- [x] `GET/POST /api/recruiter/interviews` — list/schedule interviews
+- [x] `GET/POST /api/recruiter/interviews/[id]/evaluate` — get/submit evaluation; share email to employer
+- [x] `RecruiterShell` component — sidebar nav + header layout
+- [x] `/recruiter/dashboard` — KPI cards (assigned apps, today's interviews, pass rate)
+- [x] `/recruiter/jobs` — company jobs + Post a Job button
+- [x] `/recruiter/applications` — candidate table, status filter tabs, status update
+- [x] `/recruiter/candidates/[id]` — candidate profile: skills, resume, application + interview history
+- [x] `/recruiter/interviews` — upcoming + past interviews, schedule button
+- [x] `/recruiter/interviews/[id]/evaluate` — Interview Evaluation Form (star scores, recommendation, share toggle)
+- [x] `/recruiter/pipeline` — kanban: Applied → Reviewing → Shortlisted → Hired/Rejected
+
+---
+
+## Phase 26: Admin Jobs Deep Dive & UX Fixes ✓
+- [x] F1: Admin jobs — stats strip (clickable Active/Closed/Draft/Expired/Reported pills → instant filter)
+- [x] F2: Admin jobs — extra filters: Experience Level, Posted In (7/30/90 days), Urgent-only toggle, Has-Reports toggle
+- [x] F3: Admin jobs — Reset Filters button (appears only when any filter is active)
+- [x] F4: Admin jobs — page size selector (10/20/50/100 per page) in pagination bar
+- [x] F5: Admin jobs — jump-to-page input (visible when >2 pages exist)
+- [x] F6: Admin jobs — bulk permanent delete (confirm dialog; removes record from DB)
+- [x] F7: Admin jobs — bulk Mark Urgent / Clear Urgent in bulk action bar
+- [x] F8: Admin jobs — individual permanent delete in detail drawer danger zone
+- [x] F9: Admin jobs — Conversion Rate (CVR %) sub-text under Apps column per row
+- [x] F10: Admin jobs — `GET /api/admin/jobs` extended: pageSize, exp, days, urgent, reported params + stats in response
+- [x] F11: Admin jobs — `DELETE /api/admin/jobs/[id]` handler added
+- [x] F12: Withdraw with mandatory reason — modal replaces browser confirm(); textarea min 10 chars enforced on client + server (400 if missing); reason logged server-side
+- [x] F13: SaveButton active state on jobs listing — `/jobs` server component fetches saved job IDs in parallel and passes `initialSaved` to each SaveButton; bookmark now shows filled for already-saved jobs
+
+---
+
+## Phase 27: Product Depth & Portfolio Polish ✓
+- [x] F1: Interview countdown card — candidate dashboard shows days/hours until next scheduled interview
+- [x] F2: Application timeline view — toggle on `/dashboard/applications` between table and vertical timeline (uses ApplicationStatusLog)
+- [x] F3: Rejection reason display — candidate sees employer's rejectionReason in styled message instead of just "Rejected" chip
+- [x] F4: Resume completeness score — circular gauge (0–100%) on candidate dashboard scoring name/bio/headline/skills/photo/experience
+- [x] F5: Offer letter generator — `/employer/offer-letter` form (role, salary, start date) → styled HTML; copy + email candidate
+- [x] F6: Duplicate application detector — badge in employer applications list when candidate applied to >1 company job
+- [x] F7: Interview no-show tracker — "Mark No-show" button on meetings; surfaces warning badge on future applications from that candidate
+- [x] F8: Admin dashboard live KPI refresh — setInterval 60s + "live" green dot indicator; stats no longer stale on reload
+- [x] F9: Job quality score — computed score column in admin jobs table (salary/skills/desc/expiry checks)
+- [x] F10: Flagged jobs review queue — `/dashboard/admin/flagged-jobs` dedicated triage page (jobs with ≥1 report, sorted by count)
+- [x] F11: Email verification gate — `POST /api/jobs/[id]/apply` + `POST /api/employer/jobs` blocked if emailVerified=false; `POST /api/auth/resend-verification` added
+- [x] F12: Referral tracking — `?ref=<userId>` on job URLs stored as `referredBy` on Application; admin top-referrers report; schema: `referredBy String?`
+- [x] F13: Saved search history — last 5 searches in localStorage; quick-pick chips below search bar on `/jobs`
+- [x] F14: Changelog page — `/changelog` static page listing features by date
+- [x] F15: API rate limiting — in-memory counter on `/api/auth/signup`; 429 + Retry-After header
+
 ## Blockers
 *(None currently)*
 

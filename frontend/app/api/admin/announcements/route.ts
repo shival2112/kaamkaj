@@ -1,18 +1,11 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 const KEYS = ['announcement_active', 'announcement_text', 'announcement_color'] as const;
 
-async function verifyAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
-  return dbUser?.role === 'ADMIN' ? user : null;
-}
 
 async function getAnnouncement() {
   const rows = await prisma.siteSetting.findMany({ where: { key: { in: [...KEYS] } } });
@@ -24,7 +17,7 @@ async function getAnnouncement() {
   };
 }
 
-// Public read — used by AnnouncementBanner on every page
+// Public read â€” used by AnnouncementBanner on every page
 export async function GET() {
   try {
     const data = await getAnnouncement();
@@ -35,10 +28,10 @@ export async function GET() {
   }
 }
 
-// Admin only — create / replace announcement
+// Admin only â€” create / replace announcement
 export async function POST(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json() as { active?: boolean; text?: string; color?: string };
@@ -50,10 +43,10 @@ export async function POST(request: Request) {
   }
 }
 
-// Admin only — partial update
+// Admin only â€” partial update
 export async function PATCH(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json() as { active?: boolean; text?: string; color?: string };
@@ -87,3 +80,4 @@ async function upsertAnnouncement(
     )
   );
 }
+

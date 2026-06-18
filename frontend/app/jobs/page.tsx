@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { MapPin, IndianRupee, Clock, Search, Briefcase, ChevronRight, BadgeCheck } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
@@ -7,6 +8,7 @@ import { JobType, JobStatus, ExperienceLevel } from '@prisma/client';
 import { JobFilters } from '@/components/jobs/JobFilters';
 import { Pagination } from '@/components/ui/Pagination';
 import { SaveButton } from '@/components/jobs/SaveButton';
+import { SearchHistoryChips } from '@/components/jobs/SearchHistoryChips';
 import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
@@ -101,12 +103,14 @@ interface PageProps {
     q?: string; type?: string; experienceLevel?: string; location?: string;
     salaryMin?: string; salaryMax?: string; sort?: string; page?: string;
     workMode?: string; workType?: string; shift?: string; department?: string; datePosted?: string;
+    companyId?: string;
   };
 }
 
 export default async function JobsPage({ searchParams }: PageProps) {
   const q          = searchParams.q?.trim() || undefined;
   const location   = searchParams.location?.trim() || undefined;
+  const companyId  = searchParams.companyId?.trim() || undefined;
   const page       = Math.max(1, Number(searchParams.page || 1));
   const datePosted = searchParams.datePosted || 'all';
   const workModes  = searchParams.workMode?.split(',').filter(Boolean) ?? [];
@@ -161,7 +165,12 @@ export default async function JobsPage({ searchParams }: PageProps) {
     ...(annualSalMax  && { salaryMax: { lte: annualSalMax } }),
     ...(createdAtFilter && { createdAt: createdAtFilter }),
     ...(departments.length > 0 && { company: { industry: { in: departments } } }),
+    ...(companyId     && { companyId }),
   };
+
+  const filteredCompany = companyId
+    ? await prisma.company.findUnique({ where: { id: companyId }, select: { name: true } })
+    : null;
 
   const orderBy =
     sort === 'trending'    ? { viewCount: 'desc' as const } :
@@ -171,6 +180,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
 
   let candidateSkills: string[] = [];
   let appliedJobIds: Set<string> = new Set();
+  let savedJobIds:   Set<string> = new Set();
   const [jobs, total] = await Promise.all([
     prisma.job.findMany({
       where,
@@ -186,12 +196,14 @@ export default async function JobsPage({ searchParams }: PageProps) {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const [resume, applications] = await Promise.all([
+      const [resume, applications, savedJobs] = await Promise.all([
         prisma.resume.findUnique({ where: { userId: user.id }, select: { parsedData: true } }),
         prisma.application.findMany({ where: { candidateId: user.id }, select: { jobId: true } }),
+        prisma.savedJob.findMany({ where: { userId: user.id }, select: { jobId: true } }),
       ]);
       candidateSkills = ((resume?.parsedData as { skills?: string[] })?.skills) ?? [];
       appliedJobIds   = new Set(applications.map(a => a.jobId));
+      savedJobIds     = new Set(savedJobs.map(s => s.jobId));
     }
   } catch { /* non-fatal */ }
 
@@ -206,7 +218,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
             {total.toLocaleString()} Jobs — Find Your Next Job
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {q ? `Results for "${q}"` : 'All active jobs'}
+            {q ? `Results for "${q}"` : filteredCompany ? `Jobs at ${filteredCompany.name}` : 'All active jobs'}
             {location ? ` in ${location}` : ''}
           </p>
 
@@ -237,6 +249,9 @@ export default async function JobsPage({ searchParams }: PageProps) {
               Search
             </button>
           </form>
+          <Suspense>
+            <SearchHistoryChips />
+          </Suspense>
         </div>
       </div>
 
@@ -314,7 +329,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
                                   {matchScore}% match
                                 </span>
                               )}
-                              <SaveButton jobId={job.id} variant="icon" />
+                              <SaveButton jobId={job.id} variant="icon" initialSaved={savedJobIds.has(job.id)} />
                             </div>
                           </div>
 

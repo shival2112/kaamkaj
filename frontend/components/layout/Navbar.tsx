@@ -118,9 +118,9 @@ export function Navbar() {
   const profileRef = useRef<HTMLDivElement>(null);
   const jobsRef    = useRef<HTMLDivElement>(null);
 
-  const { user, dbUser, isLoading } = useAuth();
+  const { user, dbUser } = useAuth();
   const clearUser = useAuthStore((s) => s.clearUser);
-  const { data: nextSession, status: nextStatus } = useSession();
+  const { data: nextSession } = useSession();
   const { openLogin } = useModalStore();
   const { activeUser, isLoggedIn: appLoggedIn, logout: appLogout } = useAppAuth();
 
@@ -174,7 +174,6 @@ export function Navbar() {
 
   const displaySub = nextUser?.phone ?? user?.email ?? (activeUser?.type === 'candidate' ? activeUser.phone : '');
   const isAnyLoggedIn = !!nextSession || !!user || appLoggedIn;
-  const sessionLoading = isLoading || nextStatus === 'loading';
 
   return (
     <>
@@ -230,9 +229,7 @@ export function Navbar() {
 
         {/* Desktop: Auth */}
         <div className="hidden items-center gap-2 md:flex">
-          {sessionLoading ? (
-            <div className="h-9 w-32 animate-pulse rounded-lg bg-muted" />
-          ) : isAnyLoggedIn ? (
+          {isAnyLoggedIn ? (
             <>
               <Link
                 href={dashPath}

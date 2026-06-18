@@ -1,26 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { verifyAdmin } from '@/lib/admin-auth';
 import { Role } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
-
-async function verifyAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { admin: null, unauth: true };
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
-  return { admin: dbUser?.role === 'ADMIN' ? user : null, unauth: false };
-}
 
 export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { admin, unauth } = await verifyAdmin();
-    if (!admin) return NextResponse.json({ error: unauth ? 'Unauthorized' : 'Forbidden' }, { status: unauth ? 401 : 403 });
+    const { admin } = await verifyAdmin();
+    if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const user = await prisma.user.findUnique({
       where: { id: params.id },
@@ -52,8 +44,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { admin, unauth } = await verifyAdmin();
-    if (!admin) return NextResponse.json({ error: unauth ? 'Unauthorized' : 'Forbidden' }, { status: unauth ? 401 : 403 });
+    const { admin } = await verifyAdmin();
+    if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     // Prevent admin from suspending themselves
     if (params.id === admin.id) {
@@ -124,8 +116,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { admin, unauth } = await verifyAdmin();
-    if (!admin) return NextResponse.json({ error: unauth ? 'Unauthorized' : 'Forbidden' }, { status: unauth ? 401 : 403 });
+    const { admin } = await verifyAdmin();
+    if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     if (params.id === admin.id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });

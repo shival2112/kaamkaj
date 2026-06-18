@@ -76,6 +76,20 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ── Email verification gate (Supabase users only; phone-bridge users skip) ─
+    if (sbUser) {
+      const dbUserForVerify = await prisma.user.findUnique({
+        where: { id: candidateId },
+        select: { emailVerified: true, email: true },
+      });
+      if (dbUserForVerify && !dbUserForVerify.emailVerified && !dbUserForVerify.email.endsWith('@phone.kaamkaaj.internal')) {
+        return NextResponse.json(
+          { error: 'Please verify your email address before applying.', code: 'EMAIL_NOT_VERIFIED' },
+          { status: 403 }
+        );
+      }
+    }
+
     // ── Profile completeness check ─────────────────────────────────────────────
     const resume = await prisma.resume.findUnique({
       where:  { userId: candidateId },
@@ -134,11 +148,20 @@ export async function POST(
     }
 
     // ── Create application ─────────────────────────────────────────────────────
-    const body = await request.json().catch(() => ({})) as { coverLetter?: string };
+    const body = await request.json().catch(() => ({})) as { coverLetter?: string; ref?: string };
     const coverLetter = body.coverLetter?.trim() || undefined;
 
+    // Read referral from request body OR URL query param
+    const url = new URL(request.url);
+    const refUserId = body.ref?.trim() || url.searchParams.get('ref') || undefined;
+
     const application = await prisma.application.create({
-      data: { jobId: params.id, candidateId, ...(coverLetter && { coverLetter }) },
+      data: {
+        jobId: params.id,
+        candidateId,
+        ...(coverLetter && { coverLetter }),
+        ...(refUserId && refUserId !== candidateId && { referredBy: refUserId }),
+      },
     });
     console.log('[apply] created application', application.id, '| job:', params.id, '| candidate:', candidateId);
 

@@ -12,7 +12,7 @@ import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar, type SidebarNavSection } from '@/components/dashboard/DashboardSidebar';
 import {
-  LayoutDashboard, ClipboardList, BarChart3,
+  LayoutDashboard, ClipboardList, BarChart3, FileText,
 } from 'lucide-react';
 
 const EMPLOYER_NAV: SidebarNavSection[] = [
@@ -23,6 +23,7 @@ const EMPLOYER_NAV: SidebarNavSection[] = [
       { href: '/employer/dashboard/listings',    label: 'My Listings',           icon: Layers },
       { href: '/employer/dashboard/applications',label: 'Applications Received', icon: ClipboardList },
       { href: '/employer/dashboard/analytics',   label: 'Analytics',             icon: BarChart3 },
+      { href: '/employer/offer-letter',          label: 'Offer Letter',          icon: FileText },
     ],
   },
 ];

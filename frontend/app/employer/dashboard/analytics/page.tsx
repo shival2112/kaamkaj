@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3, Users, CheckCircle2, XCircle,
   TrendingUp, Layers, PlusCircle, ClipboardList,
-  LayoutDashboard,
+  LayoutDashboard, FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +21,7 @@ const EMPLOYER_NAV: SidebarNavSection[] = [
       { href: '/employer/dashboard/listings',    label: 'My Listings',           icon: Layers },
       { href: '/employer/dashboard/applications',label: 'Applications Received', icon: ClipboardList },
       { href: '/employer/dashboard/analytics',   label: 'Analytics',             icon: BarChart3 },
+      { href: '/employer/offer-letter',          label: 'Offer Letter',          icon: FileText },
     ],
   },
 ];

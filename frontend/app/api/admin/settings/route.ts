@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +14,6 @@ const DEFAULTS: Record<string, string> = {
   max_applications_per_day:  '10',
 };
 
-async function verifyAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
-  return dbUser?.role === 'ADMIN' ? user : null;
-}
 
 // GET — public: any page can read settings for rendering
 export async function GET() {
@@ -38,7 +31,7 @@ export async function GET() {
 // PATCH — admin only: upsert one or more settings
 export async function PATCH(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json() as Record<string, string>;

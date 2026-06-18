@@ -1,22 +1,15 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { verifyAdmin } from '@/lib/admin-auth';
 import { sendEmail } from '@/lib/mailer';
 import { meetingScheduledHtml } from '@/lib/emailTemplates/meetingScheduled';
 
 export const dynamic = 'force-dynamic';
 
-async function verifyAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
-  return dbUser?.role === 'ADMIN' ? user : null;
-}
 
 export async function POST(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json() as {
@@ -59,7 +52,7 @@ export async function POST(request: Request) {
 
     sendEmail({
       to:      participant.email,
-      subject: `Meeting Scheduled — ${jobTitle}`,
+      subject: `Meeting Scheduled â€” ${jobTitle}`,
       html:    meetingScheduledHtml(
         participant.name,
         jobTitle,
@@ -84,3 +77,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

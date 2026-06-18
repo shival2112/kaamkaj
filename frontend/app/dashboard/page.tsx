@@ -17,13 +17,24 @@ import { ToastContainer, useToast } from '@/components/ui/Toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Stats { applications: number; savedJobs: number; interviews: number }
+interface Stats { applications: number; savedJobs: number; interviews: number; completenessScore?: number }
 
 interface RecentApp {
   id: string;
   status: string;
   appliedAt: string;
   job: { id: string; title: string; location: string; company: { name: string } };
+}
+
+interface NextInterview {
+  id: string;
+  round: string;
+  date: string;
+  time: string;
+  mode: string;
+  interviewer: string;
+  scheduledAt: string;
+  job: { id: string; title: string; company: { name: string } } | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,6 +44,17 @@ function getGreeting(): string {
   if (h < 12) return 'Good morning';
   if (h < 18) return 'Good afternoon';
   return 'Good evening';
+}
+
+function formatCountdown(scheduledAt: string, now: Date): string {
+  const diff = new Date(scheduledAt).getTime() - now.getTime();
+  if (diff <= 0) return 'Starting now';
+  const days  = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins  = Math.floor((diff % 3600000) / 60000);
+  if (days > 0)  return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 function CircularProgress({ percent }: { percent: number }) {
@@ -84,9 +106,11 @@ export default function DashboardPage() {
   }, [sessionReady, isCandidate, supabaseRole, nextAuthRole, router]);
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const [stats,       setStats]       = useState<Stats | null>(null);
-  const [recentApps,  setRecentApps]  = useState<RecentApp[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [stats,         setStats]         = useState<Stats | null>(null);
+  const [recentApps,    setRecentApps]    = useState<RecentApp[]>([]);
+  const [nextInterview, setNextInterview] = useState<NextInterview | null>(null);
+  const [dataLoading,   setDataLoading]   = useState(true);
+  const [now,           setNow]           = useState(new Date());
 
   useEffect(() => {
     if (!isCandidate) return;
@@ -103,22 +127,33 @@ export default function DashboardPage() {
     Promise.all([
       fetch('/api/candidate/stats').then(r => r.json()),
       fetch('/api/candidate/applications?limit=4').then(r => r.json()),
-    ]).then(([s, a]) => {
+      fetch('/api/candidate/interviews').then(r => r.json()),
+    ]).then(([s, a, iv]) => {
       setStats(s as Stats);
       setRecentApps((a as { applications?: RecentApp[] }).applications ?? []);
+      setNextInterview((iv as { next?: NextInterview | null }).next ?? null);
     }).catch(err => console.error('[dashboard] data fetch error:', err))
       .finally(() => setDataLoading(false));
   }, [isCandidate]);
+
+  // Live countdown tick
+  useEffect(() => {
+    if (!nextInterview) return;
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, [nextInterview]);
 
   // ── Display values — Supabase dbUser first, NextAuth session as fallback ──
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
   const role        = dbUser?.role ?? (isCandidate ? 'CANDIDATE' : 'CANDIDATE');
   const greeting    = useMemo(getGreeting, []);
 
-  const profilePct = 25
+  const profilePct = stats?.completenessScore ?? (
+    25
     + (dbUser?.name   ? 25 : 0)
     + (dbUser?.avatar ? 25 : 0)
-    + ((dbUser as { phone?: string } | null)?.phone ? 25 : 0);
+    + ((dbUser as { phone?: string } | null)?.phone ? 25 : 0)
+  );
 
   const initials = displayName.split(' ').map(w => w[0] ?? '').filter(Boolean).slice(0, 2).join('').toUpperCase() || 'U';
 
@@ -200,6 +235,32 @@ export default function DashboardPage() {
               Complete profile
             </Link>
           </div>
+
+          {/* Interview Countdown */}
+          {!dataLoading && nextInterview && (
+            <div className="mt-6 flex items-center gap-4 overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Next Interview</p>
+                <p className="mt-0.5 truncate font-semibold text-foreground">
+                  {nextInterview.job?.title ?? nextInterview.round} · {nextInterview.job?.company?.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {nextInterview.date} at {nextInterview.time} · {nextInterview.mode} · {nextInterview.interviewer}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-2xl font-bold text-blue-600">{formatCountdown(nextInterview.scheduledAt, now)}</p>
+                <p className="text-xs text-muted-foreground">remaining</p>
+              </div>
+              <Link href="/dashboard/interviews"
+                className="shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50">
+                View
+              </Link>
+            </div>
+          )}
 
           {/* KPI cards */}
           <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">

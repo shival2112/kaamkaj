@@ -6,6 +6,7 @@ import { AppAuthProvider } from '@/context/AppAuthContext';
 import { NextAuthProvider } from '@/components/auth/NextAuthProvider';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar';
+import { DevSessionReset } from '@/components/layout/DevSessionReset';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -54,6 +55,7 @@ export default function RootLayout({
             <AuthModal />
             <main id="main-content">{children}</main>
             <ServiceWorkerRegistrar />
+            {process.env.NODE_ENV === 'development' && <DevSessionReset />}
           </AppAuthProvider>
         </NextAuthProvider>
       </body>

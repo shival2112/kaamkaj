@@ -25,6 +25,11 @@ self.addEventListener('fetch', (e) => {
   if (!e.request.url.startsWith(self.location.origin)) return;
   // Skip API routes — always network-first
   if (e.request.url.includes('/api/')) return;
+  // Skip Next.js internal assets — they carry content-hash URLs in production and are
+  // already controlled by HTTP immutable cache headers. Caching them in the SW causes
+  // stale CSS/JS to be served during development (where assets have no hash) and is
+  // redundant in production.
+  if (e.request.url.includes('/_next/')) return;
 
   e.respondWith(
     caches.match(e.request).then((cached) => {

@@ -71,8 +71,24 @@ function SignInForm({ role, accent }: { role: 'CANDIDATE' | 'EMPLOYER'; accent: 
       }
 
       const userRole = (data.user?.user_metadata?.role as string ?? 'CANDIDATE').toUpperCase();
+
+      const allowed = role === 'EMPLOYER'
+        ? ['EMPLOYER', 'RECRUITER', 'ADMIN']
+        : ['CANDIDATE', 'ADMIN'];
+
+      if (!allowed.includes(userRole)) {
+        await supabase.auth.signOut();
+        setError(
+          role === 'CANDIDATE'
+            ? 'This is an employer account. Please use Employer Login instead.'
+            : 'This is a candidate account. Please use Candidate Login instead.'
+        );
+        return;
+      }
+
       const dest = userRole === 'ADMIN' ? '/dashboard/admin'
-        : userRole === 'EMPLOYER' ? '/employer/dashboard'
+        : userRole === 'EMPLOYER'   ? '/employer/dashboard'
+        : userRole === 'RECRUITER'  ? '/recruiter/dashboard'
         : '/dashboard';
 
       close();

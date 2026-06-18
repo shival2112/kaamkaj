@@ -1,22 +1,15 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { verifyAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 20;
 
-async function verifyAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
-  return dbUser?.role === 'ADMIN' ? user : null;
-}
 
 export async function GET(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
@@ -51,10 +44,10 @@ export async function GET(request: Request) {
   }
 }
 
-// POST — create a new company
+// POST â€” create a new company
 export async function POST(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json() as {
@@ -97,10 +90,10 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH — toggle isVerified
+// PATCH â€” toggle isVerified
 export async function PATCH(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const body = await request.json() as { id: string; isVerified: boolean };
@@ -119,10 +112,10 @@ export async function PATCH(request: Request) {
   }
 }
 
-// DELETE — remove a company (cascades jobs + applications)
+// DELETE â€” remove a company (cascades jobs + applications)
 export async function DELETE(request: Request) {
   try {
-    const admin = await verifyAdmin();
+    const { admin } = await verifyAdmin();
     if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
@@ -136,3 +129,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

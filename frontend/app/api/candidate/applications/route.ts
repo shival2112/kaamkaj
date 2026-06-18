@@ -22,6 +22,10 @@ export async function GET(request: Request) {
           job: {
             include: { company: { select: { name: true, industry: true } } },
           },
+          statusLogs: {
+            orderBy: { changedAt: 'asc' },
+            select: { id: true, status: true, changedAt: true },
+          },
         },
         orderBy: { appliedAt: 'desc' },
         skip: (page - 1) * limit,

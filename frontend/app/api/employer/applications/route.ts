@@ -52,8 +52,35 @@ export async function GET(request: Request) {
       prisma.application.count({ where }),
     ]);
 
+    // Detect candidates who have applied to more than one of this company's jobs
+    const candidateIds = Array.from(new Set(applications.map(a => a.candidateId)));
+    let multiApplySet = new Set<string>();
+    let noShowSet     = new Set<string>();
+    if (candidateIds.length > 0) {
+      const [multiGroups, noShowMeetings] = await Promise.all([
+        prisma.application.groupBy({
+          by: ['candidateId'],
+          where: { candidateId: { in: candidateIds }, jobId: { in: jobIds } },
+          _count: { id: true },
+          having: { id: { _count: { gt: 1 } } },
+        }),
+        prisma.meeting.findMany({
+          where: { userId: { in: candidateIds }, feedbackOutcome: 'NO_SHOW' },
+          select: { userId: true },
+        }),
+      ]);
+      multiApplySet = new Set(multiGroups.map(g => g.candidateId));
+      noShowSet     = new Set(noShowMeetings.map(m => m.userId));
+    }
+
+    const enriched = applications.map(a => ({
+      ...a,
+      hasMultipleApps:  multiApplySet.has(a.candidateId),
+      hasNoShowHistory: noShowSet.has(a.candidateId),
+    }));
+
     console.log('[GET /api/employer/applications] returning', total, 'applications for company', company.id);
-    return NextResponse.json({ applications, total, page, totalPages: Math.ceil(total / limit) });
+    return NextResponse.json({ applications: enriched, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error('[GET /api/employer/applications]', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

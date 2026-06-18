@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Mail, Phone, MapPin, Briefcase, FileText, Download, Loader2, ExternalLink } from 'lucide-react';
+import { X, Mail, Phone, MapPin, FileText, Download, Loader2, ExternalLink } from 'lucide-react';
 
 interface CandidateDetail {
   id: string; name: string; email: string;

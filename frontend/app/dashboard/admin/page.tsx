@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Search, Bell, Globe, Users, Briefcase, ClipboardList,
@@ -58,24 +58,36 @@ export default function AdminDashboardPage() {
   const user   = useAuthStore((s) => s.user);
   const dbUser = useAuthStore((s) => s.dbUser);
 
-  const [stats,       setStats]       = useState<Stats | null>(null);
-  const [recentUsers, setRecentUsers] = useState<UserRow[]>([]);
-  const [recentJobs,  setRecentJobs]  = useState<JobRow[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const [stats,        setStats]        = useState<Stats | null>(null);
+  const [recentUsers,  setRecentUsers]  = useState<UserRow[]>([]);
+  const [recentJobs,   setRecentJobs]   = useState<JobRow[]>([]);
+  const [dataLoading,  setDataLoading]  = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const { toasts, addToast, dismiss } = useToast();
 
-  useEffect(() => {
-    if (!user) return;
-    Promise.all([
-      fetch('/api/admin/stats').then(r => r.json()),
-      fetch('/api/admin/users?page=1').then(r => r.json()),
-      fetch('/api/admin/jobs?page=1').then(r => r.json()),
-    ]).then(([s, u, j]) => {
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setDataLoading(true);
+    try {
+      const [s, u, j] = await Promise.all([
+        fetch('/api/admin/stats').then(r => r.json()),
+        fetch('/api/admin/users?page=1').then(r => r.json()),
+        fetch('/api/admin/jobs?page=1').then(r => r.json()),
+      ]);
       setStats(s as Stats);
       setRecentUsers(((u as { users?: UserRow[] }).users ?? []).slice(0, 5));
       setRecentJobs(((j as { jobs?: JobRow[] }).jobs ?? []).slice(0, 5));
-    }).finally(() => setDataLoading(false));
-  }, [user]);
+      setLastRefreshed(new Date());
+    } finally {
+      if (!silent) setDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchData();
+    const interval = setInterval(() => fetchData(true), 60_000);
+    return () => clearInterval(interval);
+  }, [user, fetchData]);
 
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? 'Admin';
   const initials    = displayName.split(' ').map((w: string) => w[0] ?? '').filter(Boolean).slice(0, 2).join('').toUpperCase() || 'A';
@@ -112,13 +124,30 @@ export default function AdminDashboardPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <ShieldCheck className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName} 👋</h1>
+              <p className="text-sm text-muted-foreground">Platform overview — all systems operational.</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName} 👋</h1>
-            <p className="text-sm text-muted-foreground">Platform overview — all systems operational.</p>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+              Live
+            </span>
+            {lastRefreshed && (
+              <span className="text-xs text-muted-foreground">
+                Updated {lastRefreshed.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            <button onClick={() => fetchData()} aria-label="Refresh stats"
+              className="rounded-lg border border-gray-200 p-1.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+              <TrendingUp className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
