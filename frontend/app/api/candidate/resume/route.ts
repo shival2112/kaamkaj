@@ -33,6 +33,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'fileUrl is required' }, { status: 400 });
     }
 
+    // Must be an https URL on our own Supabase Storage origin — rejects
+    // javascript:/data: URIs and arbitrary cross-origin links from being stored
+    // and later rendered as a raw <a href> on the candidate's own profile page.
+    const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    let isValidUrl = false;
+    try {
+      const parsed = new URL(body.fileUrl);
+      isValidUrl = parsed.protocol === 'https:' && (!supabaseOrigin || parsed.origin === new URL(supabaseOrigin).origin);
+    } catch {
+      isValidUrl = false;
+    }
+    if (!isValidUrl) {
+      return NextResponse.json({ error: 'fileUrl must be a valid https URL on the storage origin' }, { status: 400 });
+    }
+
     const resume = await prisma.resume.upsert({
       where: { userId: user.id },
       update: { fileUrl: body.fileUrl },

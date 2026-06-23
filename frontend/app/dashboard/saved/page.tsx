@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Bookmark, MapPin, IndianRupee, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/authStore';
@@ -10,6 +10,7 @@ import { useSession } from 'next-auth/react';
 import { createSupabaseClient } from '@/lib/supabase';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { SaveButton } from '@/components/jobs/SaveButton';
+import { Pagination } from '@/components/ui/Pagination';
 
 interface SavedEntry {
   savedAt: string;
@@ -32,8 +33,10 @@ function fmtSalary(min?: number | null, max?: number | null) {
   return min ? `${f(min)}+` : `Up to ${f(max!)}`;
 }
 
-export default function SavedJobsPage() {
+function SavedJobsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get('page') || 1));
   const { user, dbUser, isLoading } = useAuth();
   const { data: nextSession, status: nextStatus } = useSession();
   const clearUser = useAuthStore((s) => s.clearUser);
@@ -49,18 +52,25 @@ export default function SavedJobsPage() {
     if (!isCandidate) router.replace('/login');
   }, [sessionReady, isCandidate, router]);
 
-  const [saved,   setSaved]   = useState<SavedEntry[]>([]);
-  const [total,   setTotal]   = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [saved,      setSaved]      = useState<SavedEntry[]>([]);
+  const [total,      setTotal]      = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading,    setLoading]    = useState(true);
 
   useEffect(() => {
     if (!isCandidate) return;
-    fetch('/api/candidate/saved?limit=50')
+    setLoading(true);
+    fetch(`/api/candidate/saved?page=${page}`)
       .then(r => r.json())
-      .then(d => { setSaved((d as { saved?: SavedEntry[] }).saved ?? []); setTotal((d as { total?: number }).total ?? 0); })
+      .then(d => {
+        const data = d as { saved?: SavedEntry[]; total?: number; totalPages?: number };
+        setSaved(data.saved ?? []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+      })
       .catch(err => console.error('[saved] fetch error:', err))
       .finally(() => setLoading(false));
-  }, [isCandidate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCandidate, page]);
 
   const displayName = dbUser?.name ?? user?.email?.split('@')[0] ?? nextSession?.user?.name ?? 'there';
   const role = dbUser?.role ?? 'CANDIDATE';
@@ -149,8 +159,21 @@ export default function SavedJobsPage() {
               })}
             </div>
           )}
+          {!loading && totalPages > 1 && (
+            <div className="mt-8">
+              <Pagination currentPage={page} totalPages={totalPages} />
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SavedJobsPage() {
+  return (
+    <Suspense>
+      <SavedJobsPageInner />
+    </Suspense>
   );
 }

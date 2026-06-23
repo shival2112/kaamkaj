@@ -131,6 +131,21 @@ export default function ProfilePage() {
       });
   }, [user]);
 
+  // The signed URL expires after 5 minutes (see /api/candidate/resume/signed-url) —
+  // refresh it periodically so the inline preview/open-in-new-tab link don't go stale
+  // if the candidate leaves this page open.
+  useEffect(() => {
+    if (!resumeUrl) return;
+    const refresh = () => {
+      fetch('/api/candidate/resume/signed-url')
+        .then(r => r.ok ? r.json() : null)
+        .then((s: { signedUrl?: string | null } | null) => { if (s?.signedUrl) setIframeSrc(s.signedUrl); })
+        .catch(() => {});
+    };
+    const id = setInterval(refresh, 4 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [resumeUrl]);
+
   const togglePref = useCallback(async (key: keyof NotifPrefs) => {
     const next = { ...notifPrefs, [key]: !notifPrefs[key] };
     setNotifPrefs(next);

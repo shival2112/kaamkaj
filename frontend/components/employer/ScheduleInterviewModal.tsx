@@ -2,23 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { type Interview, type Candidate, type Job } from '@/data/employerData';
 
 const ROUNDS = ['HR Round', 'Technical Round', 'Final Round', 'Managerial Round', 'Group Discussion'];
 const MODES  = ['Online', 'In-Person', 'Phone'];
 
-type FormData = Omit<Interview, 'id' | 'status' | 'questions' | 'feedback'>;
+export interface ModalCandidate { id: string; name: string; jobId: string }
+export interface ModalJob       { id: string; title: string }
+
+export interface FormData {
+  candidateId: string;
+  jobId: string;
+  round: string;
+  date: string;
+  time: string;
+  mode: string;
+  link: string;
+  interviewer: string;
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSave: (data: FormData) => void;
-  candidates: Candidate[];
-  jobs: Job[];
+  candidates: ModalCandidate[];
+  jobs: ModalJob[];
   /** Pre-fill candidate when scheduling from candidate profile */
   prefillCandidateId?: string;
   /** Pre-fill existing interview for Edit mode */
-  existing?: Interview;
+  existing?: FormData & { id: string };
 }
 
 const EMPTY: FormData = {
@@ -48,7 +59,7 @@ export function ScheduleInterviewModal({
     if (!open) return;
     if (existing) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, status: _s, questions: _q, feedback: _f, ...rest } = existing;
+      const { id: _id, ...rest } = existing;
       setForm(rest);
     } else {
       setForm({ ...EMPTY, candidateId: prefillCandidateId ?? '' });

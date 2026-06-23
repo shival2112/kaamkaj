@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, KeyboardEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
 import { useEmployerStore } from '@/store/employerStore';
@@ -23,8 +23,9 @@ const EXP_TO_DB: Record<string, string> = {
   '8+ yrs':   'LEAD',
 };
 
-export default function PostJobPage() {
+function PostJobForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addJob } = useEmployerStore();
 
   const [title, setTitle]             = useState('');
@@ -33,7 +34,7 @@ export default function PostJobPage() {
   const [skillInput, setSkillInput]   = useState('');
   const [experience, setExperience]   = useState('');
   const [type, setType]               = useState('');
-  const [location, setLocation]       = useState('');
+  const [location, setLocation]       = useState(searchParams.get('location') ?? '');
   const [openings, setOpenings]       = useState(1);
   const [deadline, setDeadline]       = useState('');
   const [urgent, setUrgent]           = useState(false);
@@ -194,5 +195,13 @@ export default function PostJobPage() {
         </form>
       </div>
     </EmployerShell>
+  );
+}
+
+export default function PostJobPage() {
+  return (
+    <Suspense>
+      <PostJobForm />
+    </Suspense>
   );
 }

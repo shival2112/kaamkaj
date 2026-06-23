@@ -54,6 +54,24 @@ export async function POST(request: Request) {
     if (!title?.trim() || !description?.trim() || !location?.trim()) {
       return NextResponse.json({ error: 'title, description, and location are required' }, { status: 400 });
     }
+    if (title.trim().length > 150)         return NextResponse.json({ error: 'title must be 150 characters or fewer' }, { status: 400 });
+    if (location.trim().length > 150)      return NextResponse.json({ error: 'location must be 150 characters or fewer' }, { status: 400 });
+    if (description.trim().length > 10000) return NextResponse.json({ error: 'description must be 10,000 characters or fewer' }, { status: 400 });
+    if (salaryMin !== undefined && (!Number.isFinite(salaryMin) || salaryMin < 0 || salaryMin > 1_000_000_000)) {
+      return NextResponse.json({ error: 'salaryMin must be between 0 and 1,000,000,000' }, { status: 400 });
+    }
+    if (salaryMax !== undefined && (!Number.isFinite(salaryMax) || salaryMax < 0 || salaryMax > 1_000_000_000)) {
+      return NextResponse.json({ error: 'salaryMax must be between 0 and 1,000,000,000' }, { status: 400 });
+    }
+    if (salaryMin !== undefined && salaryMax !== undefined && salaryMin > salaryMax) {
+      return NextResponse.json({ error: 'salaryMin cannot exceed salaryMax' }, { status: 400 });
+    }
+    if (vacancies !== undefined && (!Number.isInteger(vacancies) || vacancies < 1 || vacancies > 1000)) {
+      return NextResponse.json({ error: 'vacancies must be an integer between 1 and 1000' }, { status: 400 });
+    }
+    if (skills !== undefined && (!Array.isArray(skills) || skills.length > 30 || skills.some(s => typeof s !== 'string' || s.length > 50))) {
+      return NextResponse.json({ error: 'skills must be an array of at most 30 strings, each 50 characters or fewer' }, { status: 400 });
+    }
 
     const validTypes = ['FULL_TIME', 'PART_TIME', 'REMOTE', 'CONTRACT', 'INTERNSHIP'];
     const validLevels = ['FRESHER', 'JUNIOR', 'MID', 'SENIOR', 'LEAD'];

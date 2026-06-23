@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Copy, Send, Check, Loader2 } from 'lucide-react';
 import { useToast, ToastContainer } from '@/components/ui/Toast';
+import { EmployerShell } from '@/components/employer/EmployerShell';
 
 interface FormData {
   candidateName: string;
@@ -84,6 +85,7 @@ export default function OfferLetterPage() {
   };
 
   return (
+    <EmployerShell>
     <div className="flex-1 overflow-y-auto p-6">
       <div className="mx-auto max-w-3xl">
         {/* Header */}
@@ -174,5 +176,6 @@ export default function OfferLetterPage() {
       </div>
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
+    </EmployerShell>
   );
 }

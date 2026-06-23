@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import { checkRateLimit, rateLimitResponseInit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+const REVIEW_LIMIT = 20;
+const REVIEW_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 // GET — list reviews + average rating for a company
 export async function GET(
@@ -15,7 +19,7 @@ export async function GET(
         where:   { companyId: params.id },
         orderBy: { createdAt: 'desc' },
         select:  {
-          id: true, rating: true, title: true, body: true, createdAt: true,
+          id: true, rating: true, title: true, body: true, createdAt: true, candidateId: true,
           candidate: { select: { name: true } },
         },
       }),
@@ -46,6 +50,14 @@ export async function POST(
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { allowed, retryAfterSecs } = checkRateLimit(`company-review:${user.id}`, REVIEW_LIMIT, REVIEW_WINDOW_MS);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many reviews submitted. Please try again later.' },
+        rateLimitResponseInit(retryAfterSecs, REVIEW_LIMIT)
+      );
+    }
 
     const dbUser = await prisma.user.findUnique({
       where:  { id: user.id },

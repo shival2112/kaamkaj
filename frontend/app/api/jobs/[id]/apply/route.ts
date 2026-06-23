@@ -149,6 +149,9 @@ export async function POST(
 
     // ── Create application ─────────────────────────────────────────────────────
     const body = await request.json().catch(() => ({})) as { coverLetter?: string; ref?: string };
+    if (body.coverLetter && body.coverLetter.length > 1000) {
+      return NextResponse.json({ error: 'coverLetter must be 1000 characters or fewer' }, { status: 400 });
+    }
     const coverLetter = body.coverLetter?.trim() || undefined;
 
     // Read referral from request body OR URL query param

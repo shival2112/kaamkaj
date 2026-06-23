@@ -2,11 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { notFound } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
-import { useEmployerStore } from '@/store/employerStore';
-import { type QuestionResult } from '@/data/employerData';
 
 type Rating = 'good' | 'average' | 'poor' | null;
 
@@ -14,6 +11,17 @@ interface AiQuestion {
   question: string;
   category: string;
   difficulty: string;
+}
+
+interface Meeting {
+  id: string;
+  round: string;
+  date: string;
+  time: string;
+  mode: string;
+  interviewer: string;
+  participant: { id: string; name: string };
+  job: { id: string; title: string; skills?: string[] } | null;
 }
 
 const DIFF_CLS: Record<string, string> = {
@@ -30,21 +38,27 @@ const CAT_CLS: Record<string, string> = {
 export default function InterviewRoomPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { interviews, candidates, jobs, saveInterviewQuestions } = useEmployerStore();
 
-  const interview = interviews.find((i) => i.id === params.id);
-
+  const [meeting, setMeeting]     = useState<Meeting | null>(null);
+  const [notFound, setNotFound]   = useState(false);
   const [loading, setLoading]     = useState(true);
   const [questions, setQuestions] = useState<AiQuestion[]>([]);
   const [ratings, setRatings]     = useState<Rating[]>([]);
   const [notes, setNotes]         = useState<string[]>([]);
   const [error, setError]         = useState('');
 
-  const candidate = interview ? candidates.find((c) => c.id === interview.candidateId) : undefined;
-  const job       = interview ? jobs.find((j) => j.id === interview.jobId) : undefined;
+  useEffect(() => {
+    fetch(`/api/employer/interviews/${params.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: Meeting | null) => {
+        if (!data) { setNotFound(true); return; }
+        setMeeting(data);
+      })
+      .catch(() => setNotFound(true));
+  }, [params.id]);
 
   useEffect(() => {
-    if (!interview) return;
+    if (!meeting) return;
     async function fetchQuestions() {
       setLoading(true);
       try {
@@ -52,9 +66,9 @@ export default function InterviewRoomPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            round:    interview!.round,
-            jobTitle: job?.title ?? 'Software Engineer',
-            skills:   job?.skills ?? [],
+            round:    meeting!.round,
+            jobTitle: meeting!.job?.title ?? 'Software Engineer',
+            skills:   meeting!.job?.skills ?? [],
           }),
         });
         const data = (await res.json()) as AiQuestion[];
@@ -77,9 +91,29 @@ export default function InterviewRoomPage() {
     }
     fetchQuestions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interview?.id]);
+  }, [meeting?.id]);
 
-  if (!interview) return notFound();
+  if (notFound) {
+    return (
+      <EmployerShell>
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
+          <p className="text-sm font-medium text-gray-600">Interview not found or you don&apos;t have access.</p>
+          <button onClick={() => router.push('/employer/interviews')} className="text-sm text-[#6B46C1] hover:underline">
+            Back to Interviews
+          </button>
+        </div>
+      </EmployerShell>
+    );
+  }
+  if (!meeting) {
+    return (
+      <EmployerShell>
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-7 w-7 animate-spin text-[#6B46C1]" />
+        </div>
+      </EmployerShell>
+    );
+  }
 
   const setRating = (idx: number, r: Rating) =>
     setRatings((prev) => prev.map((v, i) => (i === idx ? r : v)));
@@ -87,15 +121,7 @@ export default function InterviewRoomPage() {
     setNotes((prev) => prev.map((v, i) => (i === idx ? t : v)));
 
   const finishInterview = () => {
-    const results: QuestionResult[] = questions.map((q, i) => ({
-      question: q.question,
-      category: q.category,
-      difficulty: q.difficulty,
-      rating: ratings[i],
-      notes: notes[i],
-    }));
-    saveInterviewQuestions(interview.id, results);
-    router.push(`/employer/interviews/${interview.id}/feedback`);
+    router.push(`/employer/interviews/${meeting.id}/feedback`);
   };
 
   return (
@@ -105,13 +131,13 @@ export default function InterviewRoomPage() {
         <div className="rounded-xl bg-[#6B46C1] p-5 text-white">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-purple-200 text-xs font-semibold uppercase tracking-wide">{interview.round}</p>
-              <h1 className="mt-1 text-xl font-extrabold">{candidate?.name ?? 'Candidate'}</h1>
-              <p className="text-purple-200 text-sm">{job?.title ?? 'Role'} · {interview.date} at {interview.time}</p>
+              <p className="text-purple-200 text-xs font-semibold uppercase tracking-wide">{meeting.round}</p>
+              <h1 className="mt-1 text-xl font-extrabold">{meeting.participant.name}</h1>
+              <p className="text-purple-200 text-sm">{meeting.job?.title ?? 'Role'} · {meeting.date} at {meeting.time}</p>
             </div>
             <div className="text-right text-sm text-purple-200">
-              <p>{interview.mode}</p>
-              <p>Interviewer: {interview.interviewer}</p>
+              <p>{meeting.mode}</p>
+              <p>Interviewer: {meeting.interviewer}</p>
             </div>
           </div>
         </div>

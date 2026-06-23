@@ -65,6 +65,24 @@ export async function PATCH(
     if (body.status          !== undefined && !validStatuses.includes(body.status))           return NextResponse.json({ error: 'Invalid status' },           { status: 400 });
     if (body.type            !== undefined && !validTypes.includes(body.type))                return NextResponse.json({ error: 'Invalid job type' },          { status: 400 });
     if (body.experienceLevel !== undefined && !validLevels.includes(body.experienceLevel))   return NextResponse.json({ error: 'Invalid experience level' },   { status: 400 });
+    if (body.title           !== undefined && body.title.trim().length > 150)        return NextResponse.json({ error: 'title must be 150 characters or fewer' }, { status: 400 });
+    if (body.location        !== undefined && body.location.trim().length > 150)     return NextResponse.json({ error: 'location must be 150 characters or fewer' }, { status: 400 });
+    if (body.description     !== undefined && body.description.trim().length > 10000) return NextResponse.json({ error: 'description must be 10,000 characters or fewer' }, { status: 400 });
+    if (body.salaryMin != null && (!Number.isFinite(body.salaryMin) || body.salaryMin < 0 || body.salaryMin > 1_000_000_000)) {
+      return NextResponse.json({ error: 'salaryMin must be between 0 and 1,000,000,000' }, { status: 400 });
+    }
+    if (body.salaryMax != null && (!Number.isFinite(body.salaryMax) || body.salaryMax < 0 || body.salaryMax > 1_000_000_000)) {
+      return NextResponse.json({ error: 'salaryMax must be between 0 and 1,000,000,000' }, { status: 400 });
+    }
+    if (body.salaryMin != null && body.salaryMax != null && body.salaryMin > body.salaryMax) {
+      return NextResponse.json({ error: 'salaryMin cannot exceed salaryMax' }, { status: 400 });
+    }
+    if (body.vacancies !== undefined && (!Number.isInteger(body.vacancies) || body.vacancies < 1 || body.vacancies > 1000)) {
+      return NextResponse.json({ error: 'vacancies must be an integer between 1 and 1000' }, { status: 400 });
+    }
+    if (body.skills !== undefined && (!Array.isArray(body.skills) || body.skills.length > 30 || body.skills.some(s => typeof s !== 'string' || s.length > 50))) {
+      return NextResponse.json({ error: 'skills must be an array of at most 30 strings, each 50 characters or fewer' }, { status: 400 });
+    }
 
     const updated = await prisma.job.update({
       where: { id: params.id },

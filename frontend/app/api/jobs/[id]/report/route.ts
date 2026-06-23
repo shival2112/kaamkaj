@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { resolveCandidateUserId } from '@/lib/candidate-auth';
+import { checkRateLimit, rateLimitResponseInit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+const REPORT_LIMIT  = 20;
+const REPORT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 const VALID_REASONS = [
   'Spam or misleading',
@@ -20,6 +24,14 @@ export async function POST(
   try {
     const userId = await resolveCandidateUserId();
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { allowed, retryAfterSecs } = checkRateLimit(`job-report:${userId}`, REPORT_LIMIT, REPORT_WINDOW_MS);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many reports submitted. Please try again later.' },
+        rateLimitResponseInit(retryAfterSecs, REPORT_LIMIT)
+      );
+    }
 
     const body = await request.json() as { reason?: string };
     const { reason } = body;

@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const q    = searchParams.get('q')?.trim() || undefined;
-    const page = Math.max(1, Number(searchParams.get('page') || 1));
+    const page = Math.min(100000, Math.max(1, Number(searchParams.get('page') || 1)));
     const role = searchParams.get('role')?.trim().toUpperCase() as Role | undefined || undefined;
 
     const where = {

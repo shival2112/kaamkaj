@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { notFound } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
-import { useEmployerStore } from '@/store/employerStore';
 
 const RECOMMENDATIONS = [
   'Move to Next Round',
@@ -12,6 +11,20 @@ const RECOMMENDATIONS = [
   'On Hold',
   'Reject',
 ] as const;
+
+const OUTCOME_MAP: Record<string, string> = {
+  'Move to Next Round': 'PASSED',
+  'Final Select':       'PASSED',
+  'On Hold':             'FAILED',
+  'Reject':              'FAILED',
+};
+
+interface Meeting {
+  id: string;
+  round: string;
+  participant: { id: string; name: string };
+  job: { id: string; title: string } | null;
+}
 
 function RatingInput({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
@@ -31,9 +44,11 @@ function RatingInput({ label, value, onChange }: { label: string; value: number;
 export default function FeedbackPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { interviews, candidates, updateCandidate, saveInterviewFeedback } = useEmployerStore();
 
-  const interview = interviews.find((i) => i.id === params.id);
+  const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const [overall,         setOverall]        = useState(7);
   const [technical,       setTechnical]      = useState(7);
@@ -44,42 +59,70 @@ export default function FeedbackPage() {
   const [improvements,    setImprovements]   = useState('');
   const [recommendation,  setRecommendation] = useState<string>(RECOMMENDATIONS[0]);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
-  if (!interview) return notFound();
+  useEffect(() => {
+    fetch(`/api/employer/interviews/${params.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: Meeting | null) => {
+        if (!data) { setNotFound(true); return; }
+        setMeeting(data);
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [params.id]);
 
-  const outcomeMap: Record<string, string> = {
-    'Move to Next Round': 'PASSED',
-    'Final Select':       'PASSED',
-    'On Hold':            'FAILED',
-    'Reject':             'FAILED',
-  };
+  if (loading) {
+    return (
+      <EmployerShell>
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-7 w-7 animate-spin text-[#6B46C1]" />
+        </div>
+      </EmployerShell>
+    );
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  if (notFound || !meeting) {
+    return (
+      <EmployerShell>
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
+          <p className="text-sm font-medium text-gray-600">Interview not found or you don&apos;t have access.</p>
+          <button onClick={() => router.push('/employer/interviews')} className="text-sm text-[#6B46C1] hover:underline">
+            Back to Interviews
+          </button>
+        </div>
+      </EmployerShell>
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const feedback = { overall, technical, communication, culturalFit, problemSolving, strengths, improvements, recommendation };
-    saveInterviewFeedback(interview.id, feedback);
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/employer/interviews/${params.id}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outcome: OUTCOME_MAP[recommendation] ?? 'PASSED',
+          rating:  Math.max(1, Math.round(overall / 2)),
+          notes:   [strengths && `Strengths: ${strengths}`, improvements && `Improvements: ${improvements}`].filter(Boolean).join('\n'),
+        }),
+      });
+      if (!res.ok) { const d = await res.json() as { error?: string }; setError(d.error ?? 'Failed to save feedback'); return; }
 
-    const statusMap: Record<string, string> = {
-      'Move to Next Round': 'shortlisted',
-      'Final Select': 'hired',
-      'On Hold': 'reviewed',
-      'Reject': 'rejected',
-    };
-    updateCandidate(interview.candidateId, { status: (statusMap[recommendation] ?? 'reviewed') as import('@/data/employerData').CandidateStatus });
+      // Mark the interview itself as completed
+      await fetch(`/api/employer/interviews/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      });
 
-    // Persist to DB if this is a real meeting ID (fire-and-forget)
-    fetch(`/api/employer/interviews/${params.id}/feedback`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        outcome: outcomeMap[recommendation] ?? 'PASSED',
-        rating:  Math.max(1, Math.round(overall / 2)),
-        notes:   [strengths && `Strengths: ${strengths}`, improvements && `Improvements: ${improvements}`].filter(Boolean).join('\n'),
-      }),
-    }).catch(() => {/* non-fatal — meeting may be mock-only */});
-
-    setSaved(true);
-    setTimeout(() => router.push(`/employer/candidates/${interview.candidateId}`), 1500);
+      setSaved(true);
+      setTimeout(() => router.push(`/employer/candidates/${meeting.participant.id}`), 1500);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const textareaCls = 'w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-[#6B46C1] focus:outline-none';
@@ -89,9 +132,12 @@ export default function FeedbackPage() {
       <div className="mx-auto max-w-2xl p-6 lg:p-8">
         <h1 className="text-2xl font-extrabold text-gray-900">Post Interview Feedback</h1>
         <p className="mt-1 text-sm text-gray-500">
-          {interview.round} for candidate {candidates.find(c => c.id === interview.candidateId)?.name}
+          {meeting.round} for candidate {meeting.participant.name}
         </p>
 
+        {error && (
+          <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{error}</div>
+        )}
         {saved && (
           <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
             ✓ Feedback saved! Redirecting…
@@ -141,9 +187,9 @@ export default function FeedbackPage() {
               className="rounded-xl border border-gray-200 px-6 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
               Back
             </button>
-            <button type="submit" disabled={saved}
+            <button type="submit" disabled={saved || submitting}
               className="flex-1 rounded-xl bg-[#6B46C1] py-3 text-sm font-bold text-white hover:bg-purple-700 disabled:opacity-60">
-              Submit Feedback
+              {submitting ? 'Saving…' : 'Submit Feedback'}
             </button>
           </div>
         </form>

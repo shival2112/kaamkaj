@@ -7,7 +7,6 @@ import {
   Dumbbell, Stethoscope, FileText, Sparkles,
   ChevronRight, Star, Smartphone, Download, Quote,
 } from 'lucide-react';
-import { Footer } from '@/components/layout/Footer';
 import { ApnaSearchBar } from '@/components/homepage/ApnaSearchBar';
 import { prisma } from '@/lib/prisma';
 import { JobStatus } from '@prisma/client';
@@ -138,59 +137,98 @@ interface RoleItem {
   Icon: LucideIcon;
 }
 
-const TRENDING_ROLES: RoleItem[] = [
-  { role: 'Back Office', openings: 936, Icon: Archive },
-  { role: 'Driver', openings: 755, Icon: Car },
-  { role: 'Business Operations', openings: 688, Icon: BarChart3 },
-  { role: 'Digital / Online Marketing', openings: 639, Icon: Monitor },
-  { role: 'Human Resource', openings: 637, Icon: Users },
-  { role: 'Cook / Chef / Baker', openings: 597, Icon: Utensils },
-  { role: 'Fitness Trainer / Dietician', openings: 74, Icon: Dumbbell },
-  { role: 'Medical Executive / Assistant', openings: 69, Icon: Stethoscope },
-  { role: 'Doctor / Dentist', openings: 53, Icon: Stethoscope },
-  { role: 'Content Writing', openings: 44, Icon: FileText },
-  { role: 'Tailor / Cutting Master', openings: 44, Icon: Scissors },
-  { role: 'Fashion Designer', openings: 42, Icon: Sparkles },
+interface RoleConfig {
+  role: string;
+  Icon: LucideIcon;
+}
+
+const TRENDING_ROLE_CONFIG: RoleConfig[] = [
+  { role: 'Back Office', Icon: Archive },
+  { role: 'Driver', Icon: Car },
+  { role: 'Business Operations', Icon: BarChart3 },
+  { role: 'Digital / Online Marketing', Icon: Monitor },
+  { role: 'Human Resource', Icon: Users },
+  { role: 'Cook / Chef / Baker', Icon: Utensils },
+  { role: 'Fitness Trainer / Dietician', Icon: Dumbbell },
+  { role: 'Medical Executive / Assistant', Icon: Stethoscope },
+  { role: 'Doctor / Dentist', Icon: Stethoscope },
+  { role: 'Content Writing', Icon: FileText },
+  { role: 'Tailor / Cutting Master', Icon: Scissors },
+  { role: 'Fashion Designer', Icon: Sparkles },
 ];
 
-interface TestimonialItem {
+// Counts active jobs per role using the same title/skills matching the /jobs search uses,
+// so the homepage numbers never drift from what clicking through actually returns.
+async function getTrendingRoles(): Promise<RoleItem[]> {
+  const counts = await Promise.all(
+    TRENDING_ROLE_CONFIG.map(({ role }) => {
+      const keywords = role.split('/').map((k) => k.trim()).filter(Boolean);
+      return prisma.job.count({
+        where: {
+          status: JobStatus.ACTIVE,
+          OR: keywords.flatMap((kw) => [
+            { title: { contains: kw, mode: 'insensitive' as const } },
+            { skills: { hasSome: [kw] } },
+          ]),
+        },
+      });
+    }),
+  );
+
+  return TRENDING_ROLE_CONFIG.map((cfg, i) => ({ ...cfg, openings: counts[i] }));
+}
+
+interface ReviewItem {
   name: string;
   initials: string;
   rating: number;
   review: string;
   avatarBg: string;
+  companyName: string;
+  hired: boolean;
 }
 
-const TESTIMONIALS: TestimonialItem[] = [
-  {
-    name: 'Shiwangi Singla',
-    initials: 'SS',
-    rating: 4.5,
-    review: 'Thanks KaamKaaj for helping me find a job without much hassle. If you are a fresher or a skilled person, you can easily find a job through this platform.',
-    avatarBg: 'bg-pink-400',
-  },
-  {
-    name: 'Jenil Ghevariya',
-    initials: 'JG',
-    rating: 4.5,
-    review: 'This app is very helpful if you are looking for a job. The team is supportive and friendly. I got a job interview call very quickly after applying.',
-    avatarBg: 'bg-blue-500',
-  },
-  {
-    name: 'Kaynat Mansuri',
-    initials: 'KM',
-    rating: 4.5,
-    review: 'It is definitely a great app with helpful information on the job details. I would also recommend my friends to use KaamKaaj for career development.',
-    avatarBg: 'bg-violet-500',
-  },
-  {
-    name: 'Amit Sharma',
-    initials: 'AS',
-    rating: 5,
-    review: 'Found my dream job within 2 weeks. The job matching is excellent and the application process is completely seamless. Highly recommend!',
-    avatarBg: 'bg-orange-500',
-  },
-];
+const AVATAR_PALETTE = ['bg-pink-400', 'bg-blue-500', 'bg-violet-500', 'bg-orange-500', 'bg-green-500', 'bg-rose-500'] as const;
+
+// Candidate reviews are written about a specific company (see CompanyReview model),
+// not the platform itself — pulls real reviews + cross-checks Application.status === HIRED
+// so the "Hired" badge is never shown unless the candidate actually has a hired application there.
+async function getTopReviews(): Promise<ReviewItem[]> {
+  const reviews = await prisma.companyReview.findMany({
+    orderBy: [{ rating: 'desc' }, { createdAt: 'desc' }],
+    take: 4,
+    select: {
+      rating: true, title: true, body: true, candidateId: true, companyId: true,
+      candidate: { select: { name: true } },
+      company: { select: { name: true } },
+    },
+  });
+  if (reviews.length === 0) return [];
+
+  const hires = await prisma.application.findMany({
+    where: {
+      status: 'HIRED',
+      candidateId: { in: reviews.map((r) => r.candidateId) },
+      job: { companyId: { in: reviews.map((r) => r.companyId) } },
+    },
+    select: { candidateId: true, job: { select: { companyId: true } } },
+  });
+  const hiredSet = new Set(hires.map((h) => `${h.candidateId}:${h.job.companyId}`));
+
+  return reviews.map((r, i) => {
+    const initials = r.candidate.name
+      .split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+    return {
+      name: r.candidate.name,
+      initials,
+      rating: r.rating,
+      review: r.body ?? r.title,
+      avatarBg: AVATAR_PALETTE[i % AVATAR_PALETTE.length],
+      companyName: r.company.name,
+      hired: hiredSet.has(`${r.candidateId}:${r.companyId}`),
+    };
+  });
+}
 
 // ─── Sub-components (server-only, no client state) ──────────────────────────
 
@@ -388,6 +426,8 @@ function HeroIllustration() {
 
 export default async function HomePage() {
   const companies = await getTopCompanies();
+  const trendingRoles = await getTrendingRoles();
+  const topReviews = await getTopReviews();
   return (
     <main className="min-h-screen bg-white">
 
@@ -578,7 +618,7 @@ export default async function HomePage() {
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {TRENDING_ROLES.map(({ role, openings, Icon }) => (
+            {trendingRoles.map(({ role, openings, Icon }) => (
               <Link
                 key={role}
                 href={`/jobs?q=${encodeURIComponent(role)}`}
@@ -608,53 +648,50 @@ export default async function HomePage() {
       </section>
 
       {/* ── 5. Testimonials ── */}
-      <section className="overflow-hidden">
-        <div className="flex flex-col lg:flex-row min-h-[360px]">
+      {topReviews.length > 0 && (
+        <section className="overflow-hidden">
+          <div className="flex flex-col lg:flex-row min-h-[360px]">
 
-          {/* Dark green left panel */}
-          <div className="flex flex-col justify-center bg-[#007a5a] px-10 py-16 lg:w-[400px] lg:shrink-0 lg:px-14">
-            <Quote className="h-12 w-12 text-white/25 mb-6" />
-            <h2 className="text-3xl font-bold text-white leading-snug mb-8">
-              Join the community of 5 crore satisfied job seekers...
-            </h2>
-            <div>
-              <p className="text-sm text-white/60 mb-3">Play Store Ratings</p>
-              <div className="flex items-center gap-1.5">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+            {/* Dark green left panel */}
+            <div className="flex flex-col justify-center bg-[#007a5a] px-10 py-16 lg:w-[400px] lg:shrink-0 lg:px-14">
+              <Quote className="h-12 w-12 text-white/25 mb-6" />
+              <h2 className="text-3xl font-bold text-white leading-snug mb-8">
+                Real reviews from candidates who reviewed companies on KaamKaaj
+              </h2>
+            </div>
+
+            {/* Scrollable review cards — sourced from real CompanyReview rows */}
+            <div className="flex-1 bg-[#e6f4f0] px-8 py-14 lg:px-12 flex items-center">
+              <div className="flex gap-6 overflow-x-auto pb-2 w-full">
+                {topReviews.map(({ name, initials, rating, review, avatarBg, companyName, hired }) => (
+                  <div key={`${name}-${companyName}`} className="flex-none w-80 bg-white rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div
+                        className={`h-12 w-12 rounded-full ${avatarBg} flex items-center justify-center text-white font-bold text-base shrink-0`}
+                      >
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900 text-base truncate">{name}</p>
+                          {hired && (
+                            <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-[#007a5a] border border-[#007a5a]/40 px-1.5 py-0.5 rounded">
+                              ✓ Hired
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 truncate">Reviewed {companyName}</p>
+                        <StarRating rating={rating} />
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">{review}</p>
+                  </div>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Scrollable testimonial cards */}
-          <div className="flex-1 bg-[#e6f4f0] px-8 py-14 lg:px-12 flex items-center">
-            <div className="flex gap-6 overflow-x-auto pb-2 w-full">
-              {TESTIMONIALS.map(({ name, initials, rating, review, avatarBg }) => (
-                <div key={name} className="flex-none w-80 bg-white rounded-2xl p-6 shadow-sm">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div
-                      className={`h-12 w-12 rounded-full ${avatarBg} flex items-center justify-center text-white font-bold text-base shrink-0`}
-                    >
-                      {initials}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-gray-900 text-base truncate">{name}</p>
-                        <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold text-[#007a5a] border border-[#007a5a]/40 px-1.5 py-0.5 rounded">
-                          ✓ PLACED
-                        </span>
-                      </div>
-                      <StarRating rating={rating} />
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">{review}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── 6. Download App CTA ── */}
       <section
@@ -765,8 +802,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      <Footer />
     </main>
   );
 }

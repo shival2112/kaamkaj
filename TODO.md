@@ -375,6 +375,11 @@
 - [x] F14: Changelog page — `/changelog` static page listing features by date
 - [x] F15: API rate limiting — in-memory counter on `/api/auth/signup`; 429 + Retry-After header
 
+## Phase 28: Testing & Hardening (In Progress)
+- [x] F6: E2E test suite — Playwright added (`frontend/playwright.config.ts`, `frontend/e2e/`); 4 specs run in sequence against `next dev`: employer signup + post job (via API), candidate signup + onboarding, candidate apply, employer reviews application and advances its stage; `npm run test:e2e` / `test:e2e:ui`
+- [x] `frontend/e2e/db.ts` — direct Prisma helper to flip `emailVerified` after signup, since the shared dev Mailtrap relay is rate-limited and can't deliver real verification links in CI
+- [x] `frontend/e2e/state.ts` — read-merge-write JSON fixture (`e2e/.tmp/run-state.json`, gitignored) passing candidate/employer/job IDs between specs that must run in order
+
 ## Blockers
 *(None currently)*
 

@@ -3,8 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyAdmin } from '@/lib/admin-auth';
 import { Role } from '@prisma/client';
+import { checkRateLimit, rateLimitResponseInit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+const RESET_LIMIT = 3;
+const RESET_WINDOW_MS = 60 * 60 * 1000; // 1 hour, per target user
 
 export async function GET(
   _request: Request,
@@ -81,6 +85,13 @@ export async function PATCH(
     if (body.action === 'sendPasswordReset') {
       if (target.email.includes('@phone.kaamkaaj.internal')) {
         return NextResponse.json({ error: 'Phone-auth users cannot receive password reset emails' }, { status: 400 });
+      }
+      const { allowed, retryAfterSecs } = checkRateLimit(`admin-pw-reset:${params.id}`, RESET_LIMIT, RESET_WINDOW_MS);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Too many password reset emails sent to this user recently. Please wait before retrying.' },
+          rateLimitResponseInit(retryAfterSecs, RESET_LIMIT)
+        );
       }
       const { error } = await supabaseAdmin.auth.resetPasswordForEmail(target.email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/update-password`,

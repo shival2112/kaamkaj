@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StartHiringSection } from './StartHiringSection';
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -44,10 +45,8 @@ const DEPARTMENTS = [
 
 const LINKS = [
   { label: 'Download App',               href: '#' },
-  { label: 'Free Job Alerts',            href: '/dashboard/alerts' },
   { label: 'Careers',                    href: '/jobs' },
   { label: 'Contact Us',                 href: '/contact' },
-  { label: 'Vulnerability Disclosure',   href: '#' },
 ];
 
 const LEGAL = [
@@ -56,7 +55,6 @@ const LEGAL = [
 ];
 
 const RESOURCES = [
-  { label: 'Blog',     href: '#' },
   { label: 'Sitemap',  href: '/sitemap' },
 ];
 
@@ -125,12 +123,7 @@ export function Footer() {
         />
 
         {/* Start Hiring */}
-        <FooterSection
-          title="Start Hiring"
-          items={FIND_JOBS_CITIES}
-          hrefPrefix="/signup?role=employer&city="
-          suffix="Hire"
-        />
+        <StartHiringSection cities={FIND_JOBS_CITIES} />
 
         {/* Popular Jobs */}
         <div className="border-b border-gray-200 py-8">
@@ -245,26 +238,26 @@ export function Footer() {
               <p className="text-sm font-semibold text-white mb-1">Apply on the go</p>
               <p className="text-xs text-slate-400 mb-4">Get real time job updates on our App</p>
               <div className="flex gap-3">
-                <Link
-                  href="#"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] border border-white/10 px-4 py-2 text-white hover:bg-gray-800 transition-colors"
+                <div
+                  title="Coming soon"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] border border-white/10 px-4 py-2 text-white cursor-default"
                 >
                   <span className="text-lg">🍎</span>
                   <div>
                     <p className="text-[9px] leading-none text-slate-400">Download on the</p>
                     <p className="text-xs font-bold leading-tight">App Store</p>
                   </div>
-                </Link>
-                <Link
-                  href="#"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] border border-white/10 px-4 py-2 text-white hover:bg-gray-800 transition-colors"
+                </div>
+                <div
+                  title="Coming soon"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#1a1a1a] border border-white/10 px-4 py-2 text-white cursor-default"
                 >
                   <span className="text-lg">▶</span>
                   <div>
                     <p className="text-[9px] leading-none text-slate-400">Get it on</p>
                     <p className="text-xs font-bold leading-tight">Google Play</p>
                   </div>
-                </Link>
+                </div>
               </div>
             </div>
           </div>

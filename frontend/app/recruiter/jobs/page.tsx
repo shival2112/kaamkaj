@@ -48,14 +48,15 @@ function toForm(job?: Job): FormState {
 }
 
 function JobModal({
-  mode, job, onClose, onSaved,
+  mode, job, prefill, onClose, onSaved,
 }: {
   mode: 'create' | 'edit';
   job?: Job;
+  prefill?: Partial<FormState>;
   onClose: () => void;
   onSaved: (j: Job) => void;
 }) {
-  const [form,    setForm]    = useState<FormState>(toForm(job));
+  const [form,    setForm]    = useState<FormState>(() => ({ ...toForm(job), ...prefill }));
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
@@ -182,6 +183,7 @@ function RecruiterJobsInner() {
   const [loading,    setLoading]    = useState(true);
   const [modalMode,  setModalMode]  = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget] = useState<Job | undefined>();
+  const [createPrefill, setCreatePrefill] = useState<Partial<FormState> | undefined>();
   const [deleteMap,  setDeleteMap]  = useState<Record<string, boolean>>({});
   const [error,      setError]      = useState('');
 
@@ -197,7 +199,10 @@ function RecruiterJobsInner() {
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
-      setModalMode('create'); router.replace('/recruiter/jobs');
+      const location = searchParams.get('location');
+      setCreatePrefill(location ? { location } : undefined);
+      setModalMode('create');
+      router.replace('/recruiter/jobs');
     }
   }, [searchParams, router]);
 
@@ -230,7 +235,8 @@ function RecruiterJobsInner() {
         <JobModal
           mode={modalMode}
           job={modalMode === 'edit' ? editTarget : undefined}
-          onClose={() => { setModalMode(null); setEditTarget(undefined); }}
+          prefill={modalMode === 'create' ? createPrefill : undefined}
+          onClose={() => { setModalMode(null); setEditTarget(undefined); setCreatePrefill(undefined); }}
           onSaved={handleSaved}
         />
       )}

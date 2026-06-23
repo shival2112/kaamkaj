@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { JobStatus, JobType, ExperienceLevel } from '@prisma/client';
 import { cn } from '@/lib/utils';
 import { CompanyFollowButton } from '@/components/companies/CompanyFollowButton';
+import { CompanyReviewsSection } from '@/components/companies/CompanyReviewsSection';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -236,6 +237,9 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
                 </div>
               )}
             </div>
+
+            {/* Candidate reviews */}
+            <CompanyReviewsSection companyId={company.id} companyName={company.name} />
           </div>
 
           {/* Sidebar: quick stats */}

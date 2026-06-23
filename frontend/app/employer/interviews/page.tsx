@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ExternalLink, Video, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ExternalLink, Video, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { EmployerShell } from '@/components/employer/EmployerShell';
-import { ScheduleInterviewModal } from '@/components/employer/ScheduleInterviewModal';
-import { useEmployerStore } from '@/store/employerStore';
-import { type Interview } from '@/data/employerData';
+import { ScheduleInterviewModal, type FormData as InterviewFormData, type ModalCandidate, type ModalJob } from '@/components/employer/ScheduleInterviewModal';
 
 const STATUS_CLS: Record<string, string> = {
   scheduled:  'bg-blue-100 text-blue-700',
@@ -15,39 +12,114 @@ const STATUS_CLS: Record<string, string> = {
   cancelled:  'bg-gray-100 text-gray-500',
 };
 
+interface Meeting {
+  id: string;
+  round: string;
+  date: string;
+  time: string;
+  mode: string;
+  link: string | null;
+  interviewer: string;
+  status: string;
+  participant: { id: string; name: string };
+  job: { id: string; title: string } | null;
+}
+
+interface ApplicationRow {
+  id: string;
+  job: { id: string; title: string };
+  candidate: { id: string; name: string };
+}
+
 type ModalState =
   | { mode: 'closed' }
   | { mode: 'create' }
-  | { mode: 'edit'; interview: Interview };
+  | { mode: 'edit'; meeting: Meeting };
 
 export default function InterviewsPage() {
-  const router = useRouter();
-  const { interviews, candidates, jobs, addInterview, updateInterview, cancelInterview, deleteInterview } =
-    useEmployerStore();
+  const [meetings, setMeetings]       = useState<Meeting[]>([]);
+  const [applications, setApplications] = useState<ApplicationRow[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [modal, setModal]             = useState<ModalState>({ mode: 'closed' });
+  const [filter, setFilter]           = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all');
 
-  const [modal, setModal] = useState<ModalState>({ mode: 'closed' });
-  const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all');
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      fetch('/api/employer/interviews').then(r => r.ok ? r.json() : { interviews: [] }),
+      fetch('/api/employer/applications?limit=200').then(r => r.ok ? r.json() : { applications: [] }),
+    ])
+      .then(([iv, apps]: [{ interviews?: Meeting[] }, { applications?: ApplicationRow[] }]) => {
+        setMeetings(iv.interviews ?? []);
+        setApplications(apps.applications ?? []);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-  const getName = (cid: string) => candidates.find((c) => c.id === cid)?.name ?? cid;
-  const getJob  = (jid: string) => jobs.find((j) => j.id === jid)?.title ?? jid;
+  useEffect(() => { load(); }, [load]);
 
-  const visible = filter === 'all' ? interviews : interviews.filter((i) => i.status === filter);
+  const visible = filter === 'all' ? meetings : meetings.filter((m) => m.status === filter);
 
-  const handleSave = (data: Omit<Interview, 'id' | 'status' | 'questions' | 'feedback'>) => {
+  const candidateOptions: ModalCandidate[] = Array.from(
+    new Map(applications.map(a => [a.candidate.id, { id: a.candidate.id, name: a.candidate.name, jobId: a.job.id }])).values()
+  );
+  const jobOptions: ModalJob[] = Array.from(
+    new Map(applications.map(a => [a.job.id, { id: a.job.id, title: a.job.title }])).values()
+  );
+
+  const handleSave = async (data: InterviewFormData) => {
     if (modal.mode === 'edit') {
-      updateInterview(modal.interview.id, data);
+      await fetch(`/api/employer/interviews/${modal.meeting.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: data.date, time: data.time, mode: data.mode,
+          round: data.round, link: data.link, interviewer: data.interviewer,
+        }),
+      });
     } else {
-      addInterview({
-        ...data,
-        id: `i${Date.now()}`,
-        status: 'scheduled',
+      const app = applications.find(a => a.candidate.id === data.candidateId && a.job.id === data.jobId);
+      if (!app) { window.alert('No matching application found for that candidate + job.'); return; }
+      await fetch('/api/employer/interviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId: app.id,
+          date: data.date, time: data.time, mode: data.mode,
+          round: data.round, link: data.link, interviewer: data.interviewer,
+        }),
       });
     }
+    load();
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this interview? This cannot be undone.')) deleteInterview(id);
+  const cancelMeeting = async (id: string) => {
+    if (!confirm('Cancel this interview?')) return;
+    await fetch(`/api/employer/interviews/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'cancelled' }),
+    });
+    load();
   };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this interview? This cannot be undone.')) return;
+    await fetch(`/api/employer/interviews/${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  const toModalExisting = (m: Meeting): InterviewFormData & { id: string } => ({
+    id: m.id,
+    candidateId: m.participant.id,
+    jobId: m.job?.id ?? '',
+    round: m.round,
+    date: m.date,
+    time: m.time,
+    mode: m.mode,
+    link: m.link ?? '',
+    interviewer: m.interviewer,
+  });
 
   return (
     <EmployerShell>
@@ -75,7 +147,7 @@ export default function InterviewsPage() {
                   ? 'bg-[#6B46C1] text-white'
                   : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}>
-              {f === 'all' ? `All (${interviews.length})` : `${f} (${interviews.filter(i => i.status === f).length})`}
+              {f === 'all' ? `All (${meetings.length})` : `${f} (${meetings.filter(m => m.status === f).length})`}
             </button>
           ))}
         </div>
@@ -92,14 +164,16 @@ export default function InterviewsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {visible.map((iv) => (
+                {loading ? (
+                  <tr><td colSpan={9} className="px-4 py-12 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-[#6B46C1]" /></td></tr>
+                ) : visible.map((iv) => (
                   <tr key={iv.id} className="hover:bg-gray-50">
                     <td className="px-4 py-4 font-semibold text-gray-900 whitespace-nowrap">
-                      <Link href={`/employer/candidates/${iv.candidateId}`} className="hover:text-[#6B46C1]">
-                        {getName(iv.candidateId)}
+                      <Link href={`/employer/candidates/${iv.participant.id}`} className="hover:text-[#6B46C1]">
+                        {iv.participant.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{getJob(iv.jobId)}</td>
+                    <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{iv.job?.title ?? '—'}</td>
                     <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{iv.round}</td>
                     <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{iv.date}</td>
                     <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{iv.time}</td>
@@ -114,16 +188,16 @@ export default function InterviewsPage() {
                       <div className="flex items-center gap-1.5">
                         {iv.status === 'scheduled' && (
                           <>
-                            <button onClick={() => router.push(`/employer/interviews/${iv.id}`)}
+                            <Link href={`/employer/interviews/${iv.id}`}
                               className="flex items-center gap-1 rounded-lg bg-[#6B46C1] px-2.5 py-1.5 text-xs font-bold text-white hover:bg-purple-700">
                               <Video className="h-3 w-3" /> Start
-                            </button>
-                            <button onClick={() => setModal({ mode: 'edit', interview: iv })}
+                            </Link>
+                            <button onClick={() => setModal({ mode: 'edit', meeting: iv })}
                               className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50"
                               title="Edit">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-                            <button onClick={() => { if (confirm('Cancel this interview?')) cancelInterview(iv.id); }}
+                            <button onClick={() => cancelMeeting(iv.id)}
                               className="rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50">
                               Cancel
                             </button>
@@ -136,7 +210,7 @@ export default function InterviewsPage() {
                           </Link>
                         )}
                         {iv.link && (
-                          <a href={`https://${iv.link}`} target="_blank" rel="noopener noreferrer"
+                          <a href={iv.link.startsWith('http') ? iv.link : `https://${iv.link}`} target="_blank" rel="noopener noreferrer"
                             className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50"
                             title="Join link">
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -151,7 +225,7 @@ export default function InterviewsPage() {
                     </td>
                   </tr>
                 ))}
-                {visible.length === 0 && (
+                {!loading && visible.length === 0 && (
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">
                       No interviews found.{' '}
@@ -171,9 +245,9 @@ export default function InterviewsPage() {
         open={modal.mode !== 'closed'}
         onClose={() => setModal({ mode: 'closed' })}
         onSave={handleSave}
-        candidates={candidates}
-        jobs={jobs}
-        existing={modal.mode === 'edit' ? modal.interview : undefined}
+        candidates={candidateOptions}
+        jobs={jobOptions}
+        existing={modal.mode === 'edit' ? toModalExisting(modal.meeting) : undefined}
       />
     </EmployerShell>
   );

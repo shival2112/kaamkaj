@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ConditionalNavbar } from '@/components/layout/ConditionalNavbar';
+import { ConditionalFooter } from '@/components/layout/ConditionalFooter';
 import { AnnouncementBanner } from '@/components/layout/AnnouncementBanner';
 import { AppAuthProvider } from '@/context/AppAuthContext';
 import { NextAuthProvider } from '@/components/auth/NextAuthProvider';
@@ -54,6 +55,7 @@ export default function RootLayout({
             <ConditionalNavbar />
             <AuthModal />
             <main id="main-content">{children}</main>
+            <ConditionalFooter />
             <ServiceWorkerRegistrar />
             {process.env.NODE_ENV === 'development' && <DevSessionReset />}
           </AppAuthProvider>

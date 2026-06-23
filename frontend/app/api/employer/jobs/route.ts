@@ -75,11 +75,30 @@ export async function POST(request: Request) {
     if (!title?.trim() || !location?.trim() || !description?.trim()) {
       return NextResponse.json({ error: 'title, location and description are required' }, { status: 400 });
     }
+    if (title.trim().length > 150)        return NextResponse.json({ error: 'title must be 150 characters or fewer' }, { status: 400 });
+    if (location.trim().length > 150)     return NextResponse.json({ error: 'location must be 150 characters or fewer' }, { status: 400 });
+    if (description.trim().length > 10000) return NextResponse.json({ error: 'description must be 10,000 characters or fewer' }, { status: 400 });
 
     const validTypes  = Object.values(JobType)         as string[];
     const validLevels = Object.values(ExperienceLevel) as string[];
     if (!validTypes.includes(type))           return NextResponse.json({ error: 'Invalid job type' },        { status: 400 });
     if (!validLevels.includes(experienceLevel)) return NextResponse.json({ error: 'Invalid experience level' }, { status: 400 });
+
+    if (salaryMin !== undefined && (!Number.isFinite(salaryMin) || salaryMin < 0 || salaryMin > 1_000_000_000)) {
+      return NextResponse.json({ error: 'salaryMin must be between 0 and 1,000,000,000' }, { status: 400 });
+    }
+    if (salaryMax !== undefined && (!Number.isFinite(salaryMax) || salaryMax < 0 || salaryMax > 1_000_000_000)) {
+      return NextResponse.json({ error: 'salaryMax must be between 0 and 1,000,000,000' }, { status: 400 });
+    }
+    if (salaryMin !== undefined && salaryMax !== undefined && salaryMin > salaryMax) {
+      return NextResponse.json({ error: 'salaryMin cannot exceed salaryMax' }, { status: 400 });
+    }
+    if (!Number.isInteger(vacancies) || vacancies < 1 || vacancies > 1000) {
+      return NextResponse.json({ error: 'vacancies must be an integer between 1 and 1000' }, { status: 400 });
+    }
+    if (!Array.isArray(skills) || skills.length > 30 || skills.some(s => typeof s !== 'string' || s.length > 50)) {
+      return NextResponse.json({ error: 'skills must be an array of at most 30 strings, each 50 characters or fewer' }, { status: 400 });
+    }
 
     // Find or auto-create company for this employer
     let company = await prisma.company.findUnique({ where: { ownerId: userId } });

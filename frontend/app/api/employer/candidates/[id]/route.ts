@@ -43,21 +43,33 @@ export async function GET(
       select: { id: true },
     });
 
-    const applications = company
-      ? await prisma.application.findMany({
-          where: {
-            candidateId: params.id,
-            job: { companyId: company.id },
-          },
-          select: {
-            id:        true,
-            status:    true,
-            appliedAt: true,
-            job:       { select: { id: true, title: true } },
-          },
-          orderBy: { appliedAt: 'desc' },
-        })
-      : [];
+    const [applications, interviews] = company
+      ? await Promise.all([
+          prisma.application.findMany({
+            where: {
+              candidateId: params.id,
+              job: { companyId: company.id },
+            },
+            select: {
+              id:            true,
+              status:        true,
+              appliedAt:     true,
+              employerNotes: true,
+              job:           { select: { id: true, title: true } },
+            },
+            orderBy: { appliedAt: 'desc' },
+          }),
+          prisma.meeting.findMany({
+            where: { userId: params.id, job: { companyId: company.id } },
+            select: {
+              id: true, round: true, date: true, time: true, mode: true,
+              status: true, link: true,
+              job: { select: { id: true, title: true } },
+            },
+            orderBy: [{ date: 'desc' }, { time: 'desc' }],
+          }),
+        ])
+      : [[], []];
 
     // Extract all onboarding fields from resume parsedData
     const parsedData = candidate.resume?.parsedData as {
@@ -83,6 +95,7 @@ export async function GET(
       location:        parsedData?.location         ?? null,
       experienceLevel: parsedData?.experienceLevel  ?? null,
       applications,
+      interviews,
     });
   } catch (error) {
     console.error('[GET /api/employer/candidates/[id]]', error);

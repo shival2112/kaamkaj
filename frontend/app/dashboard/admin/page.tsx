@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Search, Bell, Globe, Users, Briefcase, ClipboardList,
   TrendingUp, ShieldCheck,
@@ -63,7 +64,14 @@ export default function AdminDashboardPage() {
   const [recentJobs,   setRecentJobs]   = useState<JobRow[]>([]);
   const [dataLoading,  setDataLoading]  = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [searchTerm,   setSearchTerm]   = useState('');
   const { toasts, addToast, dismiss } = useToast();
+  const router = useRouter();
+
+  const submitSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || !searchTerm.trim()) return;
+    router.push(`/dashboard/admin/users?q=${encodeURIComponent(searchTerm.trim())}`);
+  };
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setDataLoading(true);
@@ -109,6 +117,9 @@ export default function AdminDashboardPage() {
         <div className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input type="text" placeholder="Search users, jobs..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={submitSearch}
             className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
         </div>
         <div className="flex items-center gap-2">
